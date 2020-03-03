@@ -1,0 +1,7 @@
+cfp_user_register.user_register:
+  path: '/user-register'
+  defaults:
+    _title: 'CFP User Register page'
+    _form: '\Drupal\cfp_user_register\Form\UserShopRegisterForm'
+  requirements:
+    _access: 'TRUE'

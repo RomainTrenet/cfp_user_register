@@ -1,0 +1,7 @@
+name: 'CFP User Register'
+type: module
+description: 'User register for CFP'
+core: 8.x
+package: 'Custom'
+dependencies:
+  - user
