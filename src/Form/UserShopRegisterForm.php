@@ -129,12 +129,10 @@ class UserShopRegisterForm extends FormBase {
       $inner_form = ['#parents' => [$key]];
       $inner_form = $inner_form_object->buildForm($inner_form, $inner_form_state);
       $form[$key] = [
-        '#type' => 'details',
-        '#title' => $this->t('Inner form: %key', ['%key' => $key]),
+        '#type' => 'container',
         'form' => $inner_form,
       ];
 
-      $form[$key]['form']['#type'] = 'container';
       $form[$key]['form']['#theme_wrappers'] = $this->element_info_manager->getInfoProperty('container', '#theme_wrappers', []);
       unset($form[$key]['form']['form_token']);
 
