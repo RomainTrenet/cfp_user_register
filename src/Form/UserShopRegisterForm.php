@@ -8,6 +8,8 @@ use Drupal\Core\Form\FormInterface;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\ElementInfoManagerInterface;
+use Drupal\Core\Form\FormValidatorInterface;
+use Drupal\Core\Form\FormSubmitterInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 // @todo : adpat with cfp commerce enfity name.
 use Drupal\cfp_information_commerce\Entity\InformationCommerceEntity;
@@ -21,7 +23,6 @@ class UserShopRegisterForm extends FormBase {
    * @see getInnerFormState()
    */
   const INNER_FORM_STATE_KEY = 'inner_form_state';
-
   const MAIN_SUBMIT_BUTTON = 'submit';
 
   /**
@@ -35,6 +36,16 @@ class UserShopRegisterForm extends FormBase {
   protected $element_info_manager;
 
   /**
+   * @var \Drupal\Core\Form\FormValidatorInterface $form_validator
+   */
+  protected $form_validator;
+
+  /**
+   * @var \Drupal\Core\Form\FormSubmitterInterface $form_submitter
+   */
+  protected $form_submitter;
+
+  /**
    * Class constructor.
    *
    * Initialize the inner form objects : parts of the form.
@@ -43,8 +54,25 @@ class UserShopRegisterForm extends FormBase {
    *
    * @param \Drupal\Core\Render\ElementInfoManagerInterface $element_info_manager
    *   The Element info manager service.
+   *
+   * @param \Drupal\Core\Form\FormValidatorInterface $form_validator
+   *   The form state validator service.
+   *
+   * @param \Drupal\Core\Form\FormSubmitterInterface $form_submitter
+   *   The form submitter service.
    */
-  public function __construct(ElementInfoManagerInterface $element_info_manager) {
+  public function __construct(
+    ElementInfoManagerInterface $element_info_manager,
+    FormValidatorInterface $form_validator,
+    FormSubmitterInterface $form_submitter
+  ) {
+
+    // Needed services for our form.
+    $this->element_info_manager = $element_info_manager;
+    $this->form_validator = $form_validator;
+    $this->form_submitter = $form_submitter;
+
+    // Get parts (form) of the form.
     $this->innerForms['user'] = \Drupal::entityTypeManager()
       ->getFormObject('user', 'default')
       ->setEntity(User::create());
@@ -53,8 +81,6 @@ class UserShopRegisterForm extends FormBase {
       ->setEntity(InformationCommerceEntity::create([
         'type' => 'information_commerce',
       ]));
-
-    $this->element_info_manager = $element_info_manager;
   }
 
   /**
@@ -64,7 +90,9 @@ class UserShopRegisterForm extends FormBase {
     // Instantiates this form class.
     return new static(
       // Load element info service.
-      $container->get('element_info')
+      $container->get('element_info'),
+      $container->get('form_validator'),
+      $container->get('form_submitter')
     );
   }
 
@@ -181,15 +209,14 @@ class UserShopRegisterForm extends FormBase {
    * {@inheritDoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    /** @var \Drupal\Core\Form\FormValidatorInterface $form_validator */
-    $form_validator = \Drupal::service('form_validator');
     foreach ($this->innerForms as $form_key => $inner_form) {
       $inner_form_state = static::getInnerFormState($form_state, $form_key);
 
       // Pass through both the form elements validation and the form object
       // validation.
       $inner_form->validateForm($form[$form_key]['form'], $inner_form_state);
-      $form_validator->validateForm($inner_form->getFormId(), $form[$form_key]['form'], $inner_form_state);
+      //$form_validator->validateForm($inner_form->getFormId(), $form[$form_key]['form'], $inner_form_state);
+      $this->form_validator->validateForm($inner_form->getFormId(), $form[$form_key]['form'], $inner_form_state);
 
       foreach ($inner_form_state->getErrors() as $error_element_path => $error) {
         $form_state->setErrorByName($form_key . '][' . $error_element_path, $error);
@@ -201,7 +228,6 @@ class UserShopRegisterForm extends FormBase {
    * {@inheritDoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $form_submitter = \Drupal::service('form_submitter');
     $inner_form_states = [];
 
     // First, submit each form.
@@ -211,7 +237,7 @@ class UserShopRegisterForm extends FormBase {
       // The form state needs to be set as submitted before executing the
       // doSubmitForm method.
       $inner_form_states[$key]->setSubmitted();
-      $form_submitter->doSubmitForm($form[$key]['form'], $inner_form_states[$key]);
+      $this->form_submitter->doSubmitForm($form[$key]['form'], $inner_form_states[$key]);
     }
 
     // Then, record user id to the commerce.
