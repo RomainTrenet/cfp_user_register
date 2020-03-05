@@ -52,6 +52,24 @@ class UserShopRegisterMultistepForm extends FormBase {
   protected $entityTypeManager;
 
   /**
+   * The form steps id ranged by page id.
+   * @var array
+   */
+  private $form_step_ids;
+
+  /**
+   * The first step id, to avoid calculating many times.
+   * @var int|string|null
+   */
+  private $first_step_id;
+
+  /**
+   * The last step id, to avoid calculating many times.
+   * @var int|string|null
+   */
+  private $last_step_id;
+
+  /**
    * Class constructor.
    *
    * Initialize the inner form objects : parts of the form.
@@ -80,10 +98,23 @@ class UserShopRegisterMultistepForm extends FormBase {
     $this->formSubmitter = $formSubmitter;
     $this->entityTypeManager = $entityTypeManager;
 
+    // Define form steps and forms id.
+    $this->form_step_ids = [
+      1 => 'user',
+      2 => 'information_commerce',
+    ];
+    // Record last step id.
+    reset($this->form_step_ids);
+    $this->first_step_id = key($this->form_step_ids);
+    // Record last step id.
+    end($this->form_step_ids);
+    $this->last_step_id = key($this->form_step_ids);
+
     // Get parts (form) of the form.
     $this->innerForms['user'] = $this->entityTypeManager
       ->getFormObject('user', 'default')
       ->setEntity(User::create());
+    // @todo : adapt with correct entity name.
     $this->innerForms['information_commerce'] = $this->entityTypeManager
       ->getFormObject('information_commerce', 'default')
       ->setEntity(InformationCommerceEntity::create([
@@ -126,25 +157,22 @@ class UserShopRegisterMultistepForm extends FormBase {
    * {@inheritDoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    // If the form doesn't have a step_num defined, define it here.
-    if (!$form_state->has('step_num')) {
-      $form_state->set('step_num', 1);
+    // Instantiate current step id value, if the form doesn't have one.
+    if (!$form_state->has('current_step_id')) {
+      $form_state->set('current_step_id', $this->first_step_id);
     }
 
-    // Set form id for step.
-    $steps = [
-      1 => 'user',
-      2 => 'information_commerce',
-    ];
-    if (!$form_state->has('steps')) {
-      $form_state->set('steps', $steps);
-    }
+    // Set form steps id in form state.
+    // @todo check if needed, try to use $this->form step id.
+    /*if (!$form_state->has('form_step_ids')) {
+      $form_state->set('form_step_ids', $this->form_step_ids);
+    }*/
 
     $form['#process'] = $this->elementInfoManager->getInfoProperty('form', '#process', []);
     $form['#process'][] = '::processForm';
 
     // Loop on steps.
-    foreach ($steps as $step_id => $form_id) {
+    foreach ($this->form_step_ids as $step_id => $form_id) {
       // Get current form object with state.
       $inner_form_object = $this->innerForms[$form_id];
       $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
@@ -155,7 +183,7 @@ class UserShopRegisterMultistepForm extends FormBase {
       $form[$form_id] = [
         '#type' => 'container',
         'form' => $inner_form,
-        '#access' => $step_id == $form_state->get('step_num'),
+        '#access' => $step_id == $form_state->get('current_step_id'),
       ];
 
       $form[$form_id]['form']['#theme_wrappers'] = $this->elementInfoManager->getInfoProperty('container', '#theme_wrappers', []);
@@ -229,23 +257,24 @@ class UserShopRegisterMultistepForm extends FormBase {
   }
 
   /**
+   * Validate form.
+   *
+   * As the form is splited in steps, validate only the current step form.
    * {@inheritDoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-
-    // @todo : get current page. Validate only current form.
-
-    if ($form_state->has('step_num')) {
-      $step_num = $form_state->get('step_num');
-      $inner_form_state = static::getInnerFormState($form_state, $step_num);
+    if ($form_state->has('current_step_id')) {
+      $current_step_id = $form_state->get('current_step_id');
+      $current_inner_form_id = $this->form_step_ids[$current_step_id];
+      $current_inner_form_state = static::getInnerFormState($form_state, $current_inner_form_id);
 
       // Pass through both the form elements validation and the form object
       // validation.
-      $this->innerForms[$step_num]->validateForm($form[$step_num]['form'], $inner_form_state);
-      $this->formValidator->validateForm($this->innerForms[$step_num]->getFormId(), $form[$step_num]['form'], $inner_form_state);
+      $this->innerForms[$current_inner_form_id]->validateForm($form[$current_inner_form_id]['form'], $current_inner_form_state);
+      $this->formValidator->validateForm($this->innerForms[$current_inner_form_id]->getFormId(), $form[$current_inner_form_id]['form'], $current_inner_form_state);
 
-      foreach ($inner_form_state->getErrors() as $error_element_path => $error) {
-        $form_state->setErrorByName($step_num . '][' . $error_element_path, $error);
+      foreach ($current_inner_form_state->getErrors() as $error_element_path => $error) {
+        $form_state->setErrorByName($current_inner_form_id . '][' . $error_element_path, $error);
       }
     }
   }
@@ -254,25 +283,26 @@ class UserShopRegisterMultistepForm extends FormBase {
    * {@inheritDoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    if ($form_state->has('step_num')) {
+    if ($form_state->has('current_step_id')) {
       // Get the steps, current and last step number, inner form state.
-      $steps = $form_state->get('steps');
-      $step_num = $form_state->get('step_num');
-      $last_step = array_key_last($steps);
-      $inner_form_state = static::getInnerFormState($form_state, $step_num);
+      $current_step_id = $form_state->get('current_step_id');
+      $current_inner_form_id = $this->form_step_ids[$current_step_id];
+
+      //$last_step = array_key_last($steps);
+      $inner_form_state = static::getInnerFormState($form_state, $current_inner_form_id);
 
       // The form state needs to be set as submitted before executing the
       // doSubmitForm method.
       $inner_form_state->setSubmitted();
-      $this->formSubmitter->doSubmitForm($form[$step_num]['form'], $inner_form_state);
+      $this->formSubmitter->doSubmitForm($form[$current_inner_form_id]['form'], $inner_form_state);
 
       // Get last step id.
 
       // If last step, then record user id to the commerce.
-      if ($step_num == $last_step) {
+      if ($current_step_id == $this->last_step_id) {
         $new_uid = $inner_form_state['user']->getValue('uid');
         //$cfp_commerce_id = $inner_form_states['information_commerce']->getValue('cfp_commerce_id');
-        $cfp_commerce_id = static::getInnerFormState($form_state, $step_num)->getValue('cfp_commerce_id');
+        $cfp_commerce_id = static::getInnerFormState($form_state, $current_inner_form_id)->getValue('cfp_commerce_id');
 
         // Load our custom commerce entity, and set the user id as reference.
         InformationCommerceEntity::load($cfp_commerce_id)
@@ -280,28 +310,6 @@ class UserShopRegisterMultistepForm extends FormBase {
           ->save();
       }
     }
-
-
-/*
-    // First, submit each form.
-    foreach ($this->innerForms as $key => $inner_form) {
-      $inner_form_states[$key] = static::getInnerFormState($form_state, $key);
-
-      // The form state needs to be set as submitted before executing the
-      // doSubmitForm method.
-      $inner_form_states[$key]->setSubmitted();
-      $this->formSubmitter->doSubmitForm($form[$key]['form'], $inner_form_states[$key]);
-    }
-
-    // Then, record user id to the commerce.
-    $new_uid = $inner_form_states['user']->getValue('uid');
-    $cfp_commerce_id = $inner_form_states['information_commerce']->getValue('cfp_commerce_id');
-
-    // Load our custom commerce entity, and set the user id as reference.
-    InformationCommerceEntity::load($cfp_commerce_id)
-      ->set('uid_test', $new_uid)
-      ->save();
-*/
   }
 
   /**
