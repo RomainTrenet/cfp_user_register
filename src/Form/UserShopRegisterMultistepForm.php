@@ -167,16 +167,16 @@ class UserShopRegisterMultistepForm extends FormBase {
     if (!$form_state->has('current_step_id')) {
       $form_state->set('current_step_id', $this->first_step_id);
     }
-    // Instantiate form_step_ids in the form states.
+    // Instantiate form_step_ids in the form states, needed for validate, submit.
     if (!$form_state->has('form_step_ids')) {
       $form_state->set('form_step_ids', $this->form_step_ids);
     }
-    //ksm($form_state->get('form_step_ids'));
 
+    /*
     if ($form_state->get('current_step_id') == 2) {
       drupal_set_message('build step ' . $form_state->get('current_step_id') . ', form state :');
       ksm($form_state);
-    }
+    }*/
 
     $form['#process'] = $this->elementInfoManager->getInfoProperty('form', '#process', []);
     $form['#process'][] = '::processForm';
@@ -250,22 +250,22 @@ class UserShopRegisterMultistepForm extends FormBase {
 
     // @todo : check this get.
     if ($form_state->get([static::INNER_FORM_STATE_KEY, $form_id])) {
-      if ($form_state->get('current_step_id') == 2) {
+      /*if ($form_state->get('current_step_id') == 2) {
         drupal_set_message('form state deja existant');
-      }
+      }*/
       //$inner_form_state = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
       $inner_form_state = static::getInnerFormState($form_state, $form_id);
     } else {
-      if ($form_state->get('current_step_id') == 2) {
+      /*if ($form_state->get('current_step_id') == 2) {
         drupal_set_message('form state non existant, le créer');
-      }
+      }*/
       $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
     }
-
+    /*
     if ($form_state->get('current_step_id') == 2) {
       drupal_set_message('build step ' . $step_id . ', inner form state for form_id '. $form_id .' :');
       ksm($inner_form_state);
-    }
+    }*/
 
     // Wrap current inner form in container and manage access to it.
     $inner_form = ['#parents' => [$form_id]];
@@ -293,19 +293,6 @@ class UserShopRegisterMultistepForm extends FormBase {
       $inner_form_state->set('#process', []);
     }
 
-    // The actions array causes a UX problem because there should only be a
-    // single save button and not multiple.
-    // The current solution is to move the #submit callbacks of the submit
-    // element to the inner form element root.
-    if (!empty($form[$form_id]['form']['actions'])) {
-      if (isset($form[$form_id]['form']['actions'][static::MAIN_SUBMIT_BUTTON])) {
-        $form[$form_id]['form']['#submit'] = $form[$form_id]['form']['actions'][static::MAIN_SUBMIT_BUTTON]['#submit'];
-      }
-
-      unset($form[$form_id]['form']['actions']);
-    }
-    /////////
-
     // Default action elements.
     $form['actions'] = [
       '#type' => 'actions',
@@ -324,7 +311,6 @@ class UserShopRegisterMultistepForm extends FormBase {
         '#value' => t('Next'),
         '#validate' => ['::validateForm'],
         '#submit' => [
-          //'::submitForm',
           '::my_module_register_next_previous_form_submit'
         ],
         //'#limit_validation_errors' => $validation,
@@ -340,6 +326,20 @@ class UserShopRegisterMultistepForm extends FormBase {
         '#weight' => 3,
       ],
     ];
+
+    // The actions array causes a UX problem because there should only be a
+    // single save button and not multiple.
+    // The current solution is to move the #submit callbacks of the submit
+    // element to the inner form element root.
+    if (!empty($form[$form_id]['form']['actions'])) {
+      //@todo : no need, because no submit button.
+      /*if (isset($form[$form_id]['form']['actions'][static::MAIN_SUBMIT_BUTTON])) {
+        $form[$form_id]['form']['#submit'] = $form[$form_id]['form']['actions'][static::MAIN_SUBMIT_BUTTON]['#submit'];
+      }*/
+
+      unset($form[$form_id]['form']['actions']);
+    }
+    /////////
 
     drupal_set_message('end of build');
     return $form;
@@ -403,10 +403,10 @@ class UserShopRegisterMultistepForm extends FormBase {
       //ksm($this->form_step_ids);
       //$inner_form_id = $this->form_step_ids[$step_id];
       $inner_form_id = $form_state->get('form_step_ids')[$step_id];
-      if ($form_state->get('current_step_id') == 2) {
+      /*if ($form_state->get('current_step_id') == 2) {
         ksm($form_state->get('form_step_ids'));
         ksm($inner_form_id);
-      }
+      }*/
 
       // @todo : problem with last submit.
       $inner_form_state = static::getInnerFormState($form_state, $inner_form_id);
@@ -466,17 +466,25 @@ class UserShopRegisterMultistepForm extends FormBase {
     ksm($form_state);
     $inner_form_states = [];
 
-    // First, submit each form.
-    foreach ($this->innerForms as $key => $inner_form) {
+    //ksm($this->innerForms);
+    ksm($form_state->get('form_step_ids'));
 
-      $inner_form_states[$key] = static::getInnerFormState($form_state, $key);
+    // First, submit each form.
+    foreach ($form_state->get('form_step_ids') as $step_id => $form_id) {
+
+      $inner_form_states[$form_id] = static::getInnerFormState($form_state, $form_id);
 
       // The form state needs to be set as submitted before executing the
       // doSubmitForm method.
-      $inner_form_states[$key]->setSubmitted();
+      $inner_form_states[$form_id]->setSubmitted();
 
       //@todo : submit user form doesn't work.
-      $this->formSubmitter->doSubmitForm($form[$key]['form'], $inner_form_states[$key]);
+      drupal_set_message('Submit final');
+      ksm($form[$form_id]['form']);
+      ksm($inner_form_states[$form_id]);
+
+      // $form[$form_id]['form'] -> form_id user missing.
+      $this->formSubmitter->doSubmitForm($form[$form_id]['form'], $inner_form_states[$form_id]);
     }
 
 
