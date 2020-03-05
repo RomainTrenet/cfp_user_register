@@ -25,6 +25,8 @@ class UserShopRegisterMultistepForm extends FormBase {
    */
   const INNER_FORM_STATE_KEY = 'inner_form_state';
   const MAIN_SUBMIT_BUTTON = 'submit';
+  const PREVIOUS_BUTTON = 'previous';
+  const NEXT_BUTTON = 'next';
 
   /**
    * @var \Drupal\Core\Form\FormInterface[]
@@ -175,7 +177,24 @@ class UserShopRegisterMultistepForm extends FormBase {
     foreach ($this->form_step_ids as $step_id => $form_id) {
       // Get current form object with state.
       $inner_form_object = $this->innerForms[$form_id];
+
+      // @todo : Probleme est ici : on ne doit pas instancier à chaque fois.
+      //$inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
+
+      $truc = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
+      drupal_set_message('build step ' . $form_state->get('current_step_id') . ', form state :');
+      ksm($form_state);
+      drupal_set_message('build step ' . $form_state->get('current_step_id') . ', inner form state for form_id '. $form_id .' :');
+      ksm($truc);
+
+      /*if ($form_state->get([static::INNER_FORM_STATE_KEY, $form_id])) {
+        $inner_form_state = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
+      } else {
+        $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
+      }*/
       $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
+      drupal_set_message('build step ' . $form_state->get('current_step_id') . ', form state after inner state creation');
+      ksm($form_state);
 
       // Wrap current inner form in container and manage access to it.
       $inner_form = ['#parents' => [$form_id]];
@@ -216,14 +235,48 @@ class UserShopRegisterMultistepForm extends FormBase {
       }
     }
 
+    $form['my_module_actions']['previous'] = [
+      '#type' => 'submit',
+      '#value' => t('Back'),
+      '#submit' => [
+        'my_module_register_next_previous_form_submit',
+      ],
+      '#access' => FALSE,
+      '#limit_validation_errors' => [],
+    ];
+
     // Default action elements.
     $form['actions'] = [
       '#type' => 'actions',
+      static::PREVIOUS_BUTTON => [
+        '#type' => 'submit',
+        '#value' => t('Back'),
+        '#submit' => [
+          '#submit' => ['::my_module_register_next_previous_form_submit'],
+        ],
+        '#access' => $form_state->get('current_step_id') != $this->first_step_id && $this->first_step_id != $this->last_step_id,
+        //'#limit_validation_errors' => [],
+        '#weight' => 1,
+      ],
+      static::NEXT_BUTTON => [
+        '#type' => 'submit',
+        '#value' => t('Next'),
+        '#validate' => ['::validateForm'],
+        '#submit' => [
+          //'::submitForm',
+          '::my_module_register_next_previous_form_submit'
+        ],
+        //'#limit_validation_errors' => $validation,
+        '#access' => $form_state->get('current_step_id') != $this->last_step_id && $this->first_step_id != $this->last_step_id,
+        '#weight' => 2,
+      ],
       static::MAIN_SUBMIT_BUTTON => [
         '#type' => 'submit',
         '#value' => $this->t('Save'),
         '#validate' => ['::validateForm'],
         '#submit' => ['::submitForm'],
+        '#access' => $form_state->get('current_step_id') == $this->last_step_id,
+        '#weight' => 3,
       ],
     ];
 
@@ -247,6 +300,8 @@ class UserShopRegisterMultistepForm extends FormBase {
   public function processForm(array &$element, FormStateInterface &$form_state, array &$complete_form) {
     foreach ($this->innerForms as $key => $inner_form) {
       $inner_form_state = static::getInnerFormState($form_state, $key);
+      //ksm('Process, inner form state for key ' . $key . ' : ');
+      //ksm($inner_form_state);
       foreach ($inner_form_state->get('#process') as $callback) {
         // The callback format was copied from FormBuilder::doBuildForm().
         $element[$key]['form'] = call_user_func_array($inner_form_state->prepareCallback($callback), array(&$element[$key]['form'], &$inner_form_state, &$complete_form));
@@ -263,10 +318,19 @@ class UserShopRegisterMultistepForm extends FormBase {
    * {@inheritDoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('validate | Step : ' . $form_state->get('current_step_id') . ' and form state is :');
+    ksm($form_state);
+
     if ($form_state->has('current_step_id')) {
       $current_step_id = $form_state->get('current_step_id');
       $current_inner_form_id = $this->form_step_ids[$current_step_id];
-      $current_inner_form_state = static::getInnerFormState($form_state, $current_inner_form_id);
+
+      //@todo : problem with last submit.
+      /*$current_inner_form_state = static::getInnerFormState($form_state, $current_inner_form_id);
+
+      $inner_form_state = $form_state->get([static::INNER_FORM_STATE_KEY, $key]);
+
+      //ksm($current_inner_form_state);
 
       // Pass through both the form elements validation and the form object
       // validation.
@@ -276,13 +340,21 @@ class UserShopRegisterMultistepForm extends FormBase {
       foreach ($current_inner_form_state->getErrors() as $error_element_path => $error) {
         $form_state->setErrorByName($current_inner_form_id . '][' . $error_element_path, $error);
       }
+      */
+
+      $truc = $form_state->get([static::INNER_FORM_STATE_KEY, $current_inner_form_id]);
+      drupal_set_message('step : ' . $current_step_id . ' and form state inner is :');
+      ksm($truc);
+
     }
   }
 
   /**
-   * {@inheritDoc}
-   */
+ * {@inheritDoc}
+ */
+  /*
   public function submitForm(array &$form, FormStateInterface $form_state) {
+    ksm('submit | Step : ' . $form_state->get('current_step_id'));
     if ($form_state->has('current_step_id')) {
       // Get the steps, current and last step number, inner form state.
       $current_step_id = $form_state->get('current_step_id');
@@ -296,8 +368,6 @@ class UserShopRegisterMultistepForm extends FormBase {
       $inner_form_state->setSubmitted();
       $this->formSubmitter->doSubmitForm($form[$current_inner_form_id]['form'], $inner_form_state);
 
-      // Get last step id.
-
       // If last step, then record user id to the commerce.
       if ($current_step_id == $this->last_step_id) {
         $new_uid = $inner_form_state['user']->getValue('uid');
@@ -310,6 +380,78 @@ class UserShopRegisterMultistepForm extends FormBase {
           ->save();
       }
     }
+  }*/
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('submit | Step : ' . $form_state->get('current_step_id'));
+    ksm($form_state);
+    $inner_form_states = [];
+
+    // First, submit each form.
+    foreach ($this->innerForms as $key => $inner_form) {
+      /*
+      $inner_form_states[$key] = static::getInnerFormState($form_state, $key);
+
+      // The form state needs to be set as submitted before executing the
+      // doSubmitForm method.
+      $inner_form_states[$key]->setSubmitted();
+      $this->formSubmitter->doSubmitForm($form[$key]['form'], $inner_form_states[$key]);
+      */
+    }
+    /*
+
+    // Then, record user id to the commerce.
+    $new_uid = $inner_form_states['user']->getValue('uid');
+    $cfp_commerce_id = $inner_form_states['information_commerce']->getValue('cfp_commerce_id');
+
+    // Load our custom commerce entity, and set the user id as reference.
+    InformationCommerceEntity::load($cfp_commerce_id)
+      ->set('uid_test', $new_uid)
+      ->save();
+    */
+  }
+
+  /**
+   * @param array $form
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   */
+  public function my_module_register_next_previous_form_submit(array &$form, FormStateInterface $form_state) {
+
+    // Get the current page that was submitted.
+    $current_step_id = $form_state->get('current_step_id');
+    drupal_set_message('next / previous BEGIN | Step : ' . $current_step_id);
+    ksm($form_state);//OK step 1
+
+    // Setup our page values variable.
+    if (!$form_state->get('page_values')){
+      $page_values = [];
+    }
+
+    if ($form_state->getValue('next')) {
+      // Increment the page number.
+      $current_step_id ++;
+    }
+    else if ($form_state->getValue('previous')) {
+      // Decrement the page number.
+      $current_step_id --;
+    }
+
+    $inner_form_states = [];
+
+    // First, submit each form.
+    foreach ($this->innerForms as $key => $inner_form) {
+      $inner_form_states[$key] = static::getInnerFormState($form_state, $key);
+
+      // The form state needs to be set as submitted before executing the
+      // doSubmitForm method.
+      $inner_form_states[$key]->setSubmitted();
+    }
+
+    $form_state
+      ->set('current_step_id', $current_step_id )
+      //->set('page_values', $page_values)
+      ->setRebuild(TRUE);
+
+    drupal_set_message('next / previous END | Step : ' . $current_step_id);
   }
 
   /**
@@ -351,5 +493,12 @@ class UserShopRegisterMultistepForm extends FormBase {
     $form_state->set([static::INNER_FORM_STATE_KEY, $key], $inner_form_state);
     return $inner_form_state;
   }
+
+  /*protected static function setInnerFormState(FormStateInterface $form_state, FormInterface $form_object, $key) {
+    $inner_form_state = new FormState();
+    $inner_form_state->setFormObject($form_object);
+    $form_state->set([static::INNER_FORM_STATE_KEY, $key], $inner_form_state);
+    return $inner_form_state;
+  }*/
 
 }
