@@ -32,6 +32,7 @@ class UserShopRegisterMultistepForm extends FormBase {
    * @var \Drupal\Core\Form\FormInterface[]
    */
   protected $innerForms = [];
+  protected $innerFormsArray = [];
 
   /**
    * @var \Drupal\Core\Render\ElementInfoManagerInterface
@@ -57,19 +58,19 @@ class UserShopRegisterMultistepForm extends FormBase {
    * The form steps id ranged by page id.
    * @var array
    */
-  private $form_step_ids;
+  protected $form_step_ids;
 
   /**
    * The first step id, to avoid calculating many times.
    * @var int|string|null
    */
-  private $first_step_id;
+  protected $first_step_id;
 
   /**
    * The last step id, to avoid calculating many times.
    * @var int|string|null
    */
-  private $last_step_id;
+  protected $last_step_id;
 
   /**
    * Class constructor.
@@ -104,7 +105,6 @@ class UserShopRegisterMultistepForm extends FormBase {
     $this->form_step_ids = [
       1 => 'user',
       2 => 'information_commerce',
-      //3 => 'user_bis',
     ];
     // Record last step id.
     reset($this->form_step_ids);
@@ -123,9 +123,8 @@ class UserShopRegisterMultistepForm extends FormBase {
       ->setEntity(InformationCommerceEntity::create([
         'type' => 'information_commerce',
       ]));
-    /*$this->innerForms['user_bis'] = $this->entityTypeManager
-      ->getFormObject('user', 'default')
-      ->setEntity(User::create());*/
+
+    $this->innerFormsArray = [];
   }
 
   /**
@@ -167,105 +166,22 @@ class UserShopRegisterMultistepForm extends FormBase {
     if (!$form_state->has('current_step_id')) {
       $form_state->set('current_step_id', $this->first_step_id);
     }
-    // Instantiate form_step_ids in the form states, needed for validate, submit.
-    if (!$form_state->has('form_step_ids')) {
-      $form_state->set('form_step_ids', $this->form_step_ids);
-    }
-
-    /*
-    if ($form_state->get('current_step_id') == 2) {
-      drupal_set_message('build step ' . $form_state->get('current_step_id') . ', form state :');
-      ksm($form_state);
-    }*/
 
     $form['#process'] = $this->elementInfoManager->getInfoProperty('form', '#process', []);
     $form['#process'][] = '::processForm';
 
-
-    // Loop on steps.
-    /*
-    foreach ($this->form_step_ids as $step_id => $form_id) {
-      // Get current form object with state.
-      $inner_form_object = $this->innerForms[$form_id];
-
-      // @todo : Probleme est ici : on ne doit pas instancier à chaque fois.
-      // $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);.
-
-      /*$truc = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
-      drupal_set_message('build step ' . $form_state->get('current_step_id') . ', inner form state for form_id '. $form_id .' :');
-      ksm($truc);* /
-
-      if ($form_state->get([static::INNER_FORM_STATE_KEY, $form_id])) {
-        $inner_form_state = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
-      } else {
-        $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
-      }
-
-      // Wrap current inner form in container and manage access to it.
-      $inner_form = ['#parents' => [$form_id]];
-      $inner_form = $inner_form_object->buildForm($inner_form, $inner_form_state);
-      $form[$form_id] = [
-        '#type' => 'container',
-        'form' => $inner_form,
-        '#access' => $step_id == $form_state->get('current_step_id'),
-      ];
-
-      $form[$form_id]['form']['#theme_wrappers'] = $this->elementInfoManager->getInfoProperty('container', '#theme_wrappers', []);
-      unset($form[$form_id]['form']['form_token']);
-
-      // The process array is called from the FormBuilder::doBuildForm method
-      // with the form_state object assigned to the this (ComboForm) object.
-      // This results in a compatibility issues because these methods should
-      // be called on the inner forms (with their assigned FormStates).
-      // To resolve this we move the process array in the inner_form_state
-      // object.
-      if (!empty($form[$form_id]['form']['#process'])) {
-        $inner_form_state->set('#process', $form[$form_id]['form']['#process']);
-        unset($form[$form_id]['form']['#process']);
-      }
-      else {
-        $inner_form_state->set('#process', []);
-      }
-
-      // The actions array causes a UX problem because there should only be a
-      // single save button and not multiple.
-      // The current solution is to move the #submit callbacks of the submit
-      // element to the inner form element root.
-      if (!empty($form[$form_id]['form']['actions'])) {
-        if (isset($form[$form_id]['form']['actions'][static::MAIN_SUBMIT_BUTTON])) {
-          $form[$form_id]['form']['#submit'] = $form[$form_id]['form']['actions'][static::MAIN_SUBMIT_BUTTON]['#submit'];
-        }
-
-        unset($form[$form_id]['form']['actions']);
-      }
-    }
-    */
-
     //////////
     // Get current form object with state.
     $step_id = $form_state->get('current_step_id');
-    //$form_id = $this->form_step_ids[$step_id];
-    $form_id = $form_state->get('form_step_ids')[$step_id];
+    $form_id = $this->form_step_ids[$step_id];
     $inner_form_object = $this->innerForms[$form_id];
 
     // @todo : check this get.
     if ($form_state->get([static::INNER_FORM_STATE_KEY, $form_id])) {
-      /*if ($form_state->get('current_step_id') == 2) {
-        drupal_set_message('form state deja existant');
-      }*/
-      //$inner_form_state = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
       $inner_form_state = static::getInnerFormState($form_state, $form_id);
     } else {
-      /*if ($form_state->get('current_step_id') == 2) {
-        drupal_set_message('form state non existant, le créer');
-      }*/
       $inner_form_state = static::createInnerFormState($form_state, $inner_form_object, $form_id);
     }
-    /*
-    if ($form_state->get('current_step_id') == 2) {
-      drupal_set_message('build step ' . $step_id . ', inner form state for form_id '. $form_id .' :');
-      ksm($inner_form_state);
-    }*/
 
     // Wrap current inner form in container and manage access to it.
     $inner_form = ['#parents' => [$form_id]];
@@ -278,6 +194,9 @@ class UserShopRegisterMultistepForm extends FormBase {
 
     $form[$form_id]['form']['#theme_wrappers'] = $this->elementInfoManager->getInfoProperty('container', '#theme_wrappers', []);
     unset($form[$form_id]['form']['form_token']);
+
+    // Record array form.
+    $this->innerFormsArray[$form_id] = $inner_form;
 
     // The process array is called from the FormBuilder::doBuildForm method
     // with the form_state object assigned to the this (ComboForm) object.
@@ -292,6 +211,8 @@ class UserShopRegisterMultistepForm extends FormBase {
     else {
       $inner_form_state->set('#process', []);
     }
+
+    ////
 
     // Default action elements.
     $form['actions'] = [
@@ -360,19 +281,9 @@ class UserShopRegisterMultistepForm extends FormBase {
    * @see \Drupal\Core\Form\FormBuilder::doBuildForm()
    */
   public function processForm(array &$element, FormStateInterface &$form_state, array &$complete_form) {
-    /*foreach ($this->innerForms as $key => $inner_form) {
-      $inner_form_state = static::getInnerFormState($form_state, $key);
-      foreach ($inner_form_state->get('#process') as $callback) {
-        // The callback format was copied from FormBuilder::doBuildForm().
-        $element[$key]['form'] = call_user_func_array($inner_form_state->prepareCallback($callback), array(&$element[$key]['form'], &$inner_form_state, &$complete_form));
-      }
-    }
-
-    return $element;
-    */
     $step_id = $form_state->get('current_step_id');
-    //$inner_form_id = $this->form_step_ids[$step_id];
-    $inner_form_id = $form_state->get('form_step_ids')[$step_id];
+    $inner_form_id = $this->form_step_ids[$step_id];
+    //$inner_form_id = $form_state->get('form_step_ids')[$step_id];
 
     // @todo : replace key var.
     $key = $inner_form_id;
@@ -393,20 +304,9 @@ class UserShopRegisterMultistepForm extends FormBase {
    * {@inheritDoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    if ($form_state->get('current_step_id') == 2) {
-      drupal_set_message('validate | Step : ' . $form_state->get('current_step_id') . ' and form state is :');
-      ksm($form_state);
-    }
-
     if ($form_state->has('current_step_id')) {
       $step_id = $form_state->get('current_step_id');
-      //ksm($this->form_step_ids);
-      //$inner_form_id = $this->form_step_ids[$step_id];
-      $inner_form_id = $form_state->get('form_step_ids')[$step_id];
-      /*if ($form_state->get('current_step_id') == 2) {
-        ksm($form_state->get('form_step_ids'));
-        ksm($inner_form_id);
-      }*/
+      $inner_form_id = $this->form_step_ids[$step_id];
 
       // @todo : problem with last submit.
       $inner_form_state = static::getInnerFormState($form_state, $inner_form_id);
@@ -420,18 +320,13 @@ class UserShopRegisterMultistepForm extends FormBase {
         $form_state->setErrorByName($inner_form_id . '][' . $error_element_path, $error);
       }
 
-      if ($form_state->get('current_step_id') == 2) {
-        drupal_set_message('validate step : ' . $step_id . ' and form state inner is :');
-        ksm($inner_form_state);
-      }
-
     }
     drupal_set_message('end of validate');
   }
 
   /**
- * {@inheritDoc}
- */
+   * {@inheritDoc}
+   */
   /*
   public function submitForm(array &$form, FormStateInterface $form_state) {
     ksm('submit | Step : ' . $form_state->get('current_step_id'));
@@ -463,30 +358,51 @@ class UserShopRegisterMultistepForm extends FormBase {
   }*/
   public function submitForm(array &$form, FormStateInterface $form_state) {
     drupal_set_message('Begin of submit | Step : ' . $form_state->get('current_step_id') . ' and form state is : ');
-    ksm($form_state);
     $inner_form_states = [];
 
-    //ksm($this->innerForms);
-    ksm($form_state->get('form_step_ids'));
-
     // First, submit each form.
-    foreach ($form_state->get('form_step_ids') as $step_id => $form_id) {
-
-      $inner_form_states[$form_id] = static::getInnerFormState($form_state, $form_id);
-
+    foreach ($this->form_step_ids as $step_id => $form_id) {
       // The form state needs to be set as submitted before executing the
       // doSubmitForm method.
-      $inner_form_states[$form_id]->setSubmitted();
+      $form_state->get([static::INNER_FORM_STATE_KEY, $form_id])->setSubmitted();
+      //$inner_form_states[$form_id]->setSubmitted();
+
+      //$inner_form_states[$form_id] = static::getInnerFormState($form_state, $form_id);
+      $inner_form_states[$form_id] = $form_state->get([static::INNER_FORM_STATE_KEY, $form_id]);
 
       //@todo : submit user form doesn't work.
-      drupal_set_message('Submit final');
-      ksm($form[$form_id]['form']);
-      ksm($inner_form_states[$form_id]);
 
       // $form[$form_id]['form'] -> form_id user missing.
-      $this->formSubmitter->doSubmitForm($form[$form_id]['form'], $inner_form_states[$form_id]);
-    }
+      if(isset($this->innerForms[$form_id])) {
+        //$current_form = $this->innerForms[$form_id];
+        $current_form = $this->innerFormsArray[$form_id];
+        $current_form_state = $inner_form_states[$form_id];
+        //$this->formSubmitter->doSubmitForm($current_form, $current_form_state);
+        //$this->innerForms[$form_id]->submitForm($this->innerFormsArray[$form_id], $inner_form_states[$form_id]);
+        //$this->formSubmitter->doSubmitForm($this->innerFormsArray[$form_id], $inner_form_states[$form_id]);
+        //$this->formSubmitter->doSubmitForm( ->submitForm($this->innerForms[$form_id]->getFormId(), $form[$form_id]['form'], $inner_form_states[$form_id]);
+        if($form_id == 'user') {
+          /*
+          $user_values = $inner_form_states['user']->getValues();
+          $new_user = User::create($user_values);
+          $truc = $this->entityTypeManager
+            ->getFormObject('user', 'default')
+            //->setEntity($new_user)
+            ->submitForm($current_form, $current_form_state);
+          //$this->innerForms['user']->submitForm($truc, $form_state);
+          //\Drupal::formBuilder()->submitForm('user_register', $current_form_state);
+          //$this->formSubmitter->submitForm($form[$form_id]['form'], $inner_form_states[$form_id]);
+          */
 
+        }
+      }
+      /*if(isset($form[$form_id])) {
+        //ksm($form[$form_id]['form']);
+        //ksm($inner_form_states[$form_id]);
+        //$this->formSubmitter->doSubmitForm($form[$form_id]['form'], $inner_form_states[$form_id]);
+      }*/
+
+    }
 
 /*
     // Then, record user id to the commerce.
