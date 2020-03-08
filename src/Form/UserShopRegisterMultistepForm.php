@@ -183,13 +183,16 @@ class UserShopRegisterMultistepForm extends FormBase {
     // Manage form state.
 
     // Save storage before setting brand new $form_state.
-    //$storage = $form_state->getStorage();
+    $storage = $form_state->getStorage();
     if(!empty($storage)) {
       $truc = 1;
+      //$form_state =
     }
     else {
       $truc = 2;
     }
+
+
 
     // If form get back after errors, don't touch form state.
     if ($form_state::hasAnyErrors()) {
@@ -214,7 +217,6 @@ class UserShopRegisterMultistepForm extends FormBase {
     // Get current step id and form.
     $step_id = $form_state->get('current_step_id');
     $step_form_object = $form_state->get('steps_form')[$step_id]['form_object'];
-
 
     // If step is more than first, get $form['#attributes'] and reset $form.
     if($step_id > 1) {
