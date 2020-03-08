@@ -176,6 +176,31 @@ class UserShopRegisterMultistepForm extends FormBase {
    * {@inheritDoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
+
+    drupal_set_message('build');
+    //////
+
+    // Manage form state.
+
+    // Save storage before setting brand new $form_state.
+    //$storage = $form_state->getStorage();
+    if(!empty($storage)) {
+      $truc = 1;
+    }
+    else {
+      $truc = 2;
+    }
+
+    // If form get back after errors, don't touch form state.
+    if ($form_state::hasAnyErrors()) {
+      // Else,
+      drupal_set_message('there are errors');
+    } else {
+      drupal_set_message('no error');
+    }
+
+    //////
+
     // Instantiate form_state current step id value.
     if(!$form_state->has('current_step_id')) {
       $form_state->set('current_step_id', $this->first_step_id);
@@ -190,6 +215,7 @@ class UserShopRegisterMultistepForm extends FormBase {
     $step_id = $form_state->get('current_step_id');
     $step_form_object = $form_state->get('steps_form')[$step_id]['form_object'];
 
+
     // If step is more than first, get $form['#attributes'] and reset $form.
     if($step_id > 1) {
       $attributes = isset($form['#attributes']) ? $form['#attributes'] : NULL;
@@ -201,7 +227,7 @@ class UserShopRegisterMultistepForm extends FormBase {
       }
 
       // Delete former form state values.
-      $form_state->setValues([]);
+      //$form_state->setValues([]);
 
       // @todo check if needed to clean input.
       // or get token, etc.
@@ -334,12 +360,17 @@ class UserShopRegisterMultistepForm extends FormBase {
     // validation.
     $step_form_object->validateForm($form['form'], $form_state);
     $this->formValidator->validateForm($step_form_object->getFormId(), $form['form'], $form_state);
-    //drupal_set_message('end of validate');
+    drupal_set_message('end of validate');
   }
 
   /**
+   * Submit handler for next / previous button.
+   *
    * @param array $form
+   *   The form.
+   *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
    */
   public function cfp_user_register_next_previous_form_submit(array &$form, FormStateInterface $form_state) {
     // Get the current page that was submitted.
@@ -347,18 +378,24 @@ class UserShopRegisterMultistepForm extends FormBase {
 
     drupal_set_message('next / previous BEGIN | Step : ' . $step_id);
 
-    // Record form state in the storage.
-    $this::cfp_user_register_store_step_form_state($step_id, $form_state);
-
-    // Manage step id, when all is done.
+    // Manage next and previous behavior.
     if ($form_state->getValue('next')) {
+      // Set "rebuild" to true, so that doSubmit can be executed.
+      // Without this, the form is not considered as executed.
+      $form_state->setRebuild(TRUE);
+
+      // Record form state in the storage.
+      $this::cfp_user_register_store_step_form_state($step_id, $form_state);
+
       // Increment the page number.
-      //$step_id ++;
+      $step_id ++;
+      // @todo check if step id exist.
       $form_state->set('current_step_id', $step_id);
     }
     else if ($form_state->getValue('previous')) {
       // Decrement the page number.
-      //$step_id --;
+      $step_id --;
+      // @todo check if step id exist.
       $form_state->set('current_step_id', $step_id);
     }
 
@@ -417,6 +454,8 @@ class UserShopRegisterMultistepForm extends FormBase {
    *   The form state.
    */
   private function cfp_user_register_store_step_form_state($step_id, FormStateInterface $form_state) {
+    drupal_set_message('store step form state');
+
     // Get the entire steps_form because we can't set only one child.
     $steps_form = $form_state->get('steps_form');
 
