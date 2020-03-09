@@ -29,9 +29,7 @@ class MultistepCommerceRegister extends MultistepFormBase {
     drupal_set_message('information_commerce !!!');
     drupal_set_message(parent::getCurrentStepId());
 
-    $form = parent::buildForm($form, $form_state);
-
-    $form['age'] = array(
+    /*$form['age'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Your age'),
       '#default_value' => $this->store->get('age') ? $this->store->get('age') : '',
@@ -41,7 +39,9 @@ class MultistepCommerceRegister extends MultistepFormBase {
       '#type' => 'textfield',
       '#title' => $this->t('Your location'),
       '#default_value' => $this->store->get('location') ? $this->store->get('location') : '',
-    );
+    );*/
+
+    $form = parent::buildForm($form, $form_state);
 
     return $form;
   }

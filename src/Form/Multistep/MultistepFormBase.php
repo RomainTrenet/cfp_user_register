@@ -7,12 +7,14 @@
 
 namespace Drupal\cfp_user_register\Form\Multistep;
 
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Session\SessionManagerInterface;
 use Drupal\Core\TempStore\TempStoreException;
+use Drupal\user\Entity\User;
 use Drupal\user\PrivateTempStoreFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -49,11 +51,15 @@ abstract class MultistepFormBase extends FormBase {
    */
   protected $store;
 
+  /**
+   * @var \Drupal\Core\Entity\EntityTypeInterface $entityTypeManager;
+   */
+  protected $entityTypeManager;
 
   /**
    * @var array
    */
-  protected $init_steps_form;
+  protected $steps_form;
 
   /**
    * The first step id, to avoid calculating many times.
@@ -78,40 +84,50 @@ abstract class MultistepFormBase extends FormBase {
    * @param \Drupal\user\PrivateTempStoreFactory $temp_store_factory
    * @param \Drupal\Core\Session\SessionManagerInterface $session_manager
    * @param \Drupal\Core\Session\AccountInterface $current_user
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager service.
    */
-  public function __construct(PrivateTempStoreFactory $temp_store_factory, SessionManagerInterface $session_manager, AccountInterface $current_user) {
+  public function __construct(
+    PrivateTempStoreFactory $temp_store_factory,
+    SessionManagerInterface $session_manager,
+    AccountInterface $current_user,
+    EntityTypeManagerInterface $entityTypeManager
+  ) {
     $this->tempStoreFactory = $temp_store_factory;
     $this->sessionManager = $session_manager;
     $this->currentUser = $current_user;
+    $this->entityTypeManager = $entityTypeManager;
 
     $this->store = $this->tempStoreFactory->get('multistep_data');
 
     // This are the initial steps, used at the beginning.
-    $this->init_steps_form = [
+    $this->steps_form = [
       1 => [
         'form_id' => 'user',
         'form_route' => 'cfp_user_register.user_register_user',
-        'form_object' => NULL,
-        'form' => array(),
-        'form_state' => NULL,
+        'form_object' => $this->entityTypeManager
+          ->getFormObject('user', 'default')
+          ->setEntity(User::create()),
+        //'form' => array(),
+        //'form_state' => NULL,
       ],
       2 => [
         'form_id' => 'information_commerce',
         'form_route' => 'cfp_user_register.user_register_commerce',
         'form_object' => NULL,
-        'form' => array(),
-        'form_state' => NULL,
+        //'form' => array(),
+        //'form_state' => NULL,
       ],
     ];
 
     // Record first and last step id.
-    reset($this->init_steps_form);
-    $this->first_step_id = key($this->init_steps_form);
-    end($this->init_steps_form);
-    $this->last_step_id = key($this->init_steps_form);
+    reset($this->steps_form);
+    $this->first_step_id = key($this->steps_form);
+    end($this->steps_form);
+    $this->last_step_id = key($this->steps_form);
 
     // Record matching step id for form id.
-    foreach ($this->init_steps_form as $step_id => $form_settings) {
+    foreach ($this->steps_form as $step_id => $form_settings) {
       $this->matching_step_id_for_form_id[$form_settings['form_id']] = $step_id;
     }
   }
@@ -123,7 +139,8 @@ abstract class MultistepFormBase extends FormBase {
     return new static(
       $container->get('user.private_tempstore'),
       $container->get('session_manager'),
-      $container->get('current_user')
+      $container->get('current_user'),
+      $container->get('entity_type.manager')
     );
   }
 
@@ -141,7 +158,7 @@ abstract class MultistepFormBase extends FormBase {
     //$this->setCurrentStepId(1);
 
     // Instantiate current step id value.
-    // By security, each sub-form ensure step id through init_steps_form.
+    // By security, each sub-form ensure step id through steps_form.
     $current_step_id = $this->getCurrentStepId();
     if(empty($current_step_id)) {
       $this->setCurrentStepId($this->first_step_id);
@@ -149,7 +166,8 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // Default action elements.
-    $form['form']['actions'] = [
+    //$form['form']['actions'] = [
+    $form['actions'] = [
       '#type' => 'actions',
       static::PREVIOUS_BUTTON => [
         '#type' => 'submit',
@@ -247,7 +265,7 @@ abstract class MultistepFormBase extends FormBase {
     $this->setCurrentStepId($step_id);
 
     // Manage form state redirect if step_ip exists.
-    if (array_key_exists($step_id, $this->init_steps_form)) {
+    if (array_key_exists($step_id, $this->steps_form)) {
       $form_state->setRedirect($this->getStepRoute($step_id));
     }
 
@@ -301,9 +319,31 @@ abstract class MultistepFormBase extends FormBase {
     $form_state->set('steps_form', $steps_form);*/
   }
 
+  /**
+   * Get route for a step id.
+   * @param $step_id
+   *   The id of the step.
+   *
+   * @return mixed
+   *   The route.
+   */
   private function getStepRoute($step_id) {
-    if (isset($this->init_steps_form[$step_id]['form_route'])) {
-      return $this->init_steps_form[$step_id]['form_route'];
+    if (isset($this->steps_form[$step_id]['form_route'])) {
+      return $this->steps_form[$step_id]['form_route'];
+    }
+  }
+
+  /**
+   * Get form object for a step id.
+   * @param $step_id
+   *   The id of the step.
+   *
+   * @return object
+   *   The form object.
+   */
+  protected function getStepFormObject($step_id) {
+    if (isset($this->steps_form[$step_id]['form_object'])) {
+      return $this->steps_form[$step_id]['form_object'];
     }
   }
 

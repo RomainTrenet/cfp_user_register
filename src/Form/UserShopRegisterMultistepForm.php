@@ -176,33 +176,7 @@ class UserShopRegisterMultistepForm extends FormBase {
    * {@inheritDoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-
     drupal_set_message('build');
-    //////
-
-    // Manage form state.
-
-    // Save storage before setting brand new $form_state.
-    $storage = $form_state->getStorage();
-    if(!empty($storage)) {
-      $truc = 1;
-      //$form_state =
-    }
-    else {
-      $truc = 2;
-    }
-
-
-
-    // If form get back after errors, don't touch form state.
-    if ($form_state::hasAnyErrors()) {
-      // Else,
-      drupal_set_message('there are errors');
-    } else {
-      drupal_set_message('no error');
-    }
-
-    //////
 
     // Instantiate form_state current step id value.
     if(!$form_state->has('current_step_id')) {
