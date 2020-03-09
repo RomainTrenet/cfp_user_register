@@ -7,6 +7,9 @@
 
 namespace Drupal\cfp_user_register\Form\Multistep;
 
+// @todo : adpat with cfp commerce enfity name.
+use Drupal\cfp_information_commerce\Entity\InformationCommerceEntity;
+
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormState;
@@ -115,7 +118,11 @@ abstract class MultistepFormBase extends FormBase {
       2 => [
         'form_id' => 'information_commerce',
         'form_route' => 'cfp_user_register.user_register_commerce',
-        'form_object' => NULL,
+        'form_object' => $this->entityTypeManager
+          ->getFormObject('information_commerce', 'default')
+          ->setEntity(InformationCommerceEntity::create([
+            'type' => 'information_commerce',
+          ])),
       ],
     ];
 
@@ -158,7 +165,12 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // @todo : form state.
-    //$form_state = $this::getStoreStepFormState($step_id);
+    /*$values = $this->getStoreStepFormStateValues($step_id);
+    ksm($values);
+    if(isset($values)) {
+      $form_state->setValues($values);
+    }*/
+    //$form_state = new FormState();
 
     // Start a manual session for anonymous users.
     if ($this->currentUser->isAnonymous() && !isset($_SESSION['multistep_form_holds_session'])) {
@@ -246,7 +258,7 @@ abstract class MultistepFormBase extends FormBase {
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
 
-    drupal_set_message('next / previous BEGIN | Step : ' . $step_id);
+    //drupal_set_message('next / previous BEGIN | Step : ' . $step_id);
 
     // Get operation : next or previous.
     $operation = '';
@@ -269,7 +281,7 @@ abstract class MultistepFormBase extends FormBase {
       $form_state->setRedirect($this->getStepRoute($step_id));
     }
 
-    drupal_set_message('next / previous END | Step : ' . $step_id);
+    //drupal_set_message('next / previous END | Step : ' . $step_id);
   }
 
   public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
@@ -284,10 +296,9 @@ abstract class MultistepFormBase extends FormBase {
     //$form_state->setRebuild(TRUE);
 
     // Record form state in the storage.
-    //$this::cfp_user_register_store_step_form_state($step_id, $form_state);
-
-    $form_id = $this::cfp_user_register_get_form_step_id($step_id);
+    //$form_id = $this::cfp_user_register_get_form_step_id($step_id);
     //$this::setStoreStepFormState($form_id, $form_state);
+    $this::setStoreStepFormStateValues($step_id, $form_state);
   }
 
   public function cfp_user_register_final_form_submit(array &$form, FormStateInterface $form_state) {
@@ -322,26 +333,31 @@ abstract class MultistepFormBase extends FormBase {
    * @return string
    *   The form state variable name.
    */
-  private function getFormStateStoredName($form_id) {
-    return self::FORM_STATE . '_step_' . $form_id;
+  private function getFormStateStoredName($step_id) {
+    // @todo : int to string.
+    $form_id = $this::cfp_user_register_get_step_form_id($step_id);
+    return self::FORM_STATE . '_step_' . strval($form_id);
   }
-
-  // @todo.
-  protected function getStoreStepFormState($form_id) {
-    $fs_stored_name = $this->getFormStateStoredName($form_id);
-    $fs = $this->store->get($fs_stored_name);
-
-    if(empty($fs)) {
-      $fs = new FormState();
-    }
-
-    return $fs;
-  }
-
-  // @todo.
 
   /**
-   * @todo
+   * Get form state values for a step, in the $form_state storage.
+   *
+   * @param $step_id
+   *   The id of the step.
+   *
+   * @return mixed
+   *   Array of values.
+   */
+  protected function getStoreStepFormStateValues($step_id) {
+    $fs_stored_name = $this->getFormStateStoredName($step_id);
+    $values = $this->store->get($fs_stored_name);
+    if(!empty($values)) {
+      return $values;
+    }
+    return FALSE;
+  }
+
+  /**
    * Store form state for a step, in the $form_state storage.
    *
    * @param $step_id
@@ -350,10 +366,12 @@ abstract class MultistepFormBase extends FormBase {
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
    */
-  protected function setStoreStepFormState($form_id, FormStateInterface $form_state) {
-    $fs_stored_name = $this->getFormStateStoredName($form_id);
+  protected function setStoreStepFormStateValues($step_id, FormStateInterface $form_state) {
+    // Get name of the store variable.
+    $fs_stored_name = $this->getFormStateStoredName($step_id);
+    $values = $form_state->getValues();
     try {
-      $this->store->set($fs_stored_name, $form_state);
+      $this->store->set($fs_stored_name, $values);
     } catch (TempStoreException $e) {
     }
   }
@@ -424,7 +442,7 @@ abstract class MultistepFormBase extends FormBase {
   }
 
   /**
-   * Get step if from form id.
+   * Get step id from form id.
    *
    * @param $form_id
    *   The form id.
@@ -435,6 +453,23 @@ abstract class MultistepFormBase extends FormBase {
   protected function cfp_user_register_get_form_step_id($form_id) {
     if (isset($this->matching_step_id_for_form_id[$form_id])) {
       return $this->matching_step_id_for_form_id[$form_id];
+    } else {
+      return NULL;
+    }
+  }
+
+  /**
+   * Get step id from form id.
+   *
+   * @param $form_id
+   *   The form id.
+   *
+   * @return integer\null
+   *   The step id.
+   */
+  protected function cfp_user_register_get_step_form_id($step_id) {
+    if (isset($this->steps_form[$step_id])) {
+      return $this->steps_form[$step_id]['form_id'];
     } else {
       return NULL;
     }

@@ -7,6 +7,7 @@
 
 namespace Drupal\cfp_user_register\Form\Multistep;
 
+use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\user\Entity\User;
 
@@ -26,8 +27,16 @@ class MultistepUserRegister extends MultistepFormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     drupal_set_message('user build');
 
+    // @todo : form state.
+    $step_id = $this->getCurrentStepId();
+    $values = $this->getStoreStepFormStateValues($step_id);
+    ksm($values);
+    if(isset($values)) {
+      $form_state->setValues($values);
+    }
+
     // Build parent form at the beginning to get form_state from parent.
-    //$form = parent::buildForm($form, $form_state);
+    $form = parent::buildForm($form, $form_state);
 
     // Ensure step id, get the step id from form id.
     parent::ensureStoreStepId('user');
@@ -46,20 +55,9 @@ class MultistepUserRegister extends MultistepFormBase {
     }
 
     // Build user form with inner user form.
-    /*
     $form['#type'] = 'container';
     $form[self::INNER_FORM] = $inner_form;
-    $form['#access'] = TRUE;*/
-
-    // Build form with inner user form.
-    $form = [
-      '#type' => 'container',
-      self::INNER_FORM => $inner_form,
-      '#access' => TRUE,
-    ];
-
-    // Build parent form at the end, to have buttons at the end.
-    $form = parent::buildForm($form, $form_state);
+    $form['#access'] = TRUE;
 
     drupal_set_message('end of user build form');
     return $form;
