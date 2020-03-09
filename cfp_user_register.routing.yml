@@ -1,7 +1,14 @@
-cfp_user_register.user_register:
-  path: '/user-register'
+cfp_user_register.user_register_user:
+  path: '/user-register/user'
   defaults:
-    _title: 'CFP User Register page'
-    _form: '\Drupal\cfp_user_register\Form\UserShopRegisterForm'
+    _form: '\Drupal\cfp_user_register\Form\Multistep\MultistepUserRegister'
+    _title: 'CFP Register user'
   requirements:
-    _access: 'TRUE'
+    _permission: 'access content'
+cfp_user_register.user_register_commerce:
+  path: '/user-register/commerce'
+  defaults:
+    _form: '\Drupal\cfp_user_register\Form\Multistep\MultistepCommerceRegister'
+    _title: 'CFP Register user s commerce'
+  requirements:
+    _permission: 'access content'
