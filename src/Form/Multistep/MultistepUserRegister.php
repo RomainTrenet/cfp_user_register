@@ -43,7 +43,7 @@ class MultistepUserRegister extends MultistepFormBase {
     // Build form with inner user form.
     $form = [
       '#type' => 'container',
-      'form' => $inner_form,
+      self::INNER_FORM => $inner_form,
       '#access' => TRUE,
     ];
 

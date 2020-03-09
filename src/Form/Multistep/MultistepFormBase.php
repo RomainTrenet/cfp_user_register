@@ -26,6 +26,7 @@ abstract class MultistepFormBase extends FormBase {
    * @const
    * @see getInnerFormState()
    */
+  const INNER_FORM = 'form';
   const CURRENT_STEP_ID = 'current_step_id';
   const MAIN_SUBMIT_BUTTON = 'submit';
   const PREVIOUS_BUTTON = 'previous';
@@ -166,7 +167,6 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // Default action elements.
-    //$form['form']['actions'] = [
     $form['actions'] = [
       '#type' => 'actions',
       static::PREVIOUS_BUTTON => [
@@ -182,7 +182,7 @@ abstract class MultistepFormBase extends FormBase {
       static::NEXT_BUTTON => [
         '#type' => 'submit',
         '#value' => t('Next'),
-        //'#validate' => ['::validateForm'], @todo
+        '#validate' => ['::validateForm'],
         '#submit' => [
           '::cfp_user_register_step_form_submit',
           '::cfp_user_register_next_previous_form_submit',
@@ -194,7 +194,7 @@ abstract class MultistepFormBase extends FormBase {
       static::MAIN_SUBMIT_BUTTON => [
         '#type' => 'submit',
         '#value' => $this->t('Save'),
-        //'#validate' => ['::validateForm'], @todo.
+        '#validate' => ['::validateForm'],
         '#submit' => [
           '::cfp_user_register_step_form_submit',
           '::cfp_user_register_final_form_submit',
@@ -270,6 +270,24 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     drupal_set_message('next / previous END | Step : ' . $step_id);
+  }
+
+  /**
+   * Validate form.
+   *
+   * As the form is splited in steps, validate only the current step form.
+   * {@inheritDoc}
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('validate user form');
+    $step_id = $this->getCurrentStepId();
+    $step_form_object = $this->getStepFormObject($step_id);
+
+    // Pass through both the form elements validation and the form object
+    // validation.
+    $step_form_object->validateForm($form[STATIC::INNER_FORM], $form_state);
+    //$this->formValidator->validateForm($step_form_object->getFormId(), $form[STATIC::INNER_FORM], $form_state);
+    drupal_set_message('end of validate');
   }
 
   public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
