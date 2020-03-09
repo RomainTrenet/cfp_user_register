@@ -32,7 +32,6 @@ class MultistepCommerceRegister extends MultistepFormBase {
 
     // Get inner form.
     $inner_form = parent::getStepFormObject($step_id)->buildForm([], $form_state);
-    //@todo : record inner form in the store, so that validate can use it.
 
     // Remove original entity builders and actions.
     if(isset($inner_form['#entity_builders'])) {

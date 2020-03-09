@@ -29,11 +29,11 @@ class MultistepUserRegister extends MultistepFormBase {
 
     // @todo : form state.
     $step_id = $this->getCurrentStepId();
-    $values = $this->getStoreStepFormStateValues($step_id);
+    /*$values = $this->getStoreStepFormStateValues($step_id);
     ksm($values);
     if(isset($values)) {
       $form_state->setValues($values);
-    }
+    }*/
 
     // Build parent form at the beginning to get form_state from parent.
     $form = parent::buildForm($form, $form_state);
