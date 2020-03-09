@@ -40,6 +40,18 @@ class MultistepCommerceRegister extends MultistepFormBase {
       unset($inner_form['actions']);
     }
 
+    // Populate with former values.
+    // @todo : could be improved with a Form API function.
+    $former_form_state = $this->getStoreStepFormState($step_id);
+    /*
+    foreach($inner_form['account'] as $key => $value) {
+      $default_value = $former_form_state->getValue($key);
+      if(isset($default_value) && $key != 'pass') {
+        $inner_form['account'][$key]['#default_value'] = $default_value;
+      }
+    }
+    */
+
     // Build user form with inner user form.
     $form['#type'] = 'container';
     $form[self::INNER_FORM] = $inner_form;
@@ -61,6 +73,7 @@ class MultistepCommerceRegister extends MultistepFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    //$form_state->setRedirect('redirect-route');
+    // @todo : final redirect.
+    // $form_state->setRedirect('redirect-route');
   }
 }

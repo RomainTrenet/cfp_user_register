@@ -26,12 +26,6 @@ class MultistepUserRegister extends MultistepFormBase {
     // Build parent form at the beginning to get form_state from parent.
     $form = parent::buildForm($form, $form_state);
 
-    /*$values = $this->getStoreStepFormStateValues($step_id);
-        ksm($values);
-        if(isset($values)) {
-          $form_state->setValues($values);
-        }*/
-
     // Ensure step id, get the step id from form id.
     parent::ensureStoreStepId('user');
     $step_id = parent::getCurrentStepId();
@@ -45,6 +39,18 @@ class MultistepUserRegister extends MultistepFormBase {
     }
     if(isset($inner_form['actions'])) {
       unset($inner_form['actions']);
+    }
+
+    // Populate with former values.
+    // @todo : could be improved with a Form API function.
+    $former_form_state = $this->getStoreStepFormState($step_id);
+    if(!empty($former_form_state)) {
+      foreach($inner_form['account'] as $key => $value) {
+        $default_value = $former_form_state->getValue($key);
+        if(isset($default_value) && $key != 'pass') {
+          $inner_form['account'][$key]['#default_value'] = $default_value;
+        }
+      }
     }
 
     // Build user form with inner user form.
@@ -65,6 +71,8 @@ class MultistepUserRegister extends MultistepFormBase {
   }
 
   /**
+   * Needed.
+   *
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
