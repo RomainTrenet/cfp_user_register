@@ -8,7 +8,6 @@
 namespace Drupal\cfp_user_register\Form\Multistep;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
 
 class MultistepCommerceRegister extends MultistepFormBase {
 
@@ -46,11 +45,14 @@ class MultistepCommerceRegister extends MultistepFormBase {
     $form[self::INNER_FORM] = $inner_form;
     $form['#access'] = TRUE;
 
-    drupal_set_message('end of commerce build form');
     return $form;
   }
 
-  // Needed by entityTypeManager.
+  /**
+   * Needed by entityTypeManager.
+   *
+   * {@inheritdoc}.
+   */
   public function processForm(array &$element, FormStateInterface &$form_state, array &$complete_form) {
     return $element;
   }
@@ -59,11 +61,6 @@ class MultistepCommerceRegister extends MultistepFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    //$this->store->set('age', $form_state->getValue('age'));
-    //$this->store->set('location', $form_state->getValue('location'));
-
-    // Save the data
-    //parent::saveData();
-    //$form_state->setRedirect('some_route');
+    //$form_state->setRedirect('redirect-route');
   }
 }

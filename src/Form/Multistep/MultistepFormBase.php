@@ -154,8 +154,6 @@ abstract class MultistepFormBase extends FormBase {
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    drupal_set_message('MS build');
-
     // Instantiate current step id value.
     // By security, each sub-form ensure step id through steps_form.
     $step_id = $this->getCurrentStepId();
@@ -171,6 +169,7 @@ abstract class MultistepFormBase extends FormBase {
       $form_state->setValues($values);
     }*/
     //$form_state = new FormState();
+
     $fs = $this->getStoreStepFormState($step_id);
     if(isset($fs)) {
       //$form_state = $fs;
@@ -220,7 +219,6 @@ abstract class MultistepFormBase extends FormBase {
       ],
     ];
 
-    drupal_set_message('end of build');
     return $form;
   }
 
@@ -248,6 +246,23 @@ abstract class MultistepFormBase extends FormBase {
   }
 
   /**
+   * Submit handler for each steps.
+   *
+   * @param array $form
+   *   The form.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   */
+  public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
+    // Get the current page that was submitted.
+    $step_id = $this->getCurrentStepId();
+
+    // Record form state in the storage.
+    $this::setStoreStepFormState($step_id, $form_state);
+  }
+
+  /**
    * Submit handler for next / previous button.
    *
    * @param array $form
@@ -261,8 +276,6 @@ abstract class MultistepFormBase extends FormBase {
   public function cfp_user_register_next_previous_form_submit(array &$form, FormStateInterface $form_state) {
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
-
-    //drupal_set_message('next / previous BEGIN | Step : ' . $step_id);
 
     // Get operation : next or previous.
     $operation = '';
@@ -284,45 +297,42 @@ abstract class MultistepFormBase extends FormBase {
     if (array_key_exists($step_id, $this->steps_form)) {
       $form_state->setRedirect($this->getStepRoute($step_id));
     }
-
-    //drupal_set_message('next / previous END | Step : ' . $step_id);
-  }
-
-  public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('step form submit');
-
-    // Get the current page that was submitted.
-    $step_id = $this->getCurrentStepId();
-
-    // Set "rebuild" to true, so that doSubmit can be executed.
-    // Without this, the form is not considered as executed.
-    // FAUX : problème lors du passage à étape 2.
-    //$form_state->setRebuild(TRUE);
-
-    // Record form state in the storage.
-    //$form_id = $this::cfp_user_register_get_form_step_id($step_id);
-    //$this::setStoreStepFormState($form_id, $form_state);
-    //$this::setStoreStepFormStateValues($step_id, $form_state);
-    $this::setStoreStepFormState($step_id, $form_state);
   }
 
   public function cfp_user_register_final_form_submit(array &$form, FormStateInterface $form_state) {
-    //$this->setCurrentStepId(1);
+    // Get the current page that was submitted.
+    $step_id = $this->getCurrentStepId();
 
     // Do user register form submission.
     $user_step_id = $this::cfp_user_register_get_form_step_id('user');
     if($user_step_id) {
-      $fs = $this->getStoreStepFormState($user_step_id);
-      if(!empty($fs)) {
-        //$form_state = $fs;
-        // @todo : get form and form state from storage.
-        //$user_form_state = $this->cfp_user_register_get_storage_step_form_state($user_step_id, $form_state);
-        $this->steps_form[$user_step_id]['form_object']->submitForm($form['form'], $fs);
-        $this->steps_form[$user_step_id]['form_object']->save($form['form'], $fs);
+      $user_form_state = $this->getStoreStepFormState($user_step_id);
+      if(!empty($user_form_state)) {
+        $this->steps_form[$user_step_id]['form_object']->submitForm($form['form'], $user_form_state);
+        $this->steps_form[$user_step_id]['form_object']->save($form['form'], $user_form_state);
       }
     }
 
-    drupal_set_message('hello !');
+    //
+    $commerce_step_id = $this::cfp_user_register_get_form_step_id('information_commerce');
+    if($commerce_step_id) {
+      $commerce_form_state = $this->getStoreStepFormState($commerce_step_id);
+      if(!empty($commerce_form_state)) {
+        $this->steps_form[$commerce_step_id]['form_object']->submitForm($form['form'], $commerce_form_state);
+        $this->steps_form[$commerce_step_id]['form_object']->save($form['form'], $commerce_form_state);
+      }
+    }
+
+    // Then, record user id to the commerce.
+    $new_uid = $user_form_state->getValue('uid');
+    // @todo : adapt cfp_commerce_id.
+    $cfp_commerce_id = $commerce_form_state->getValue('cfp_commerce_id');
+
+    // Load our custom commerce entity, and set the user id as reference.
+    // @todo : adapt 'uid_test' with commerce's user entity id reference.
+    InformationCommerceEntity::load($cfp_commerce_id)
+      ->set('uid_test', $new_uid)
+      ->save();
   }
 
   /**
@@ -332,15 +342,12 @@ abstract class MultistepFormBase extends FormBase {
    * {@inheritDoc}
    */
   public function customValidateForm(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('validate user form');
     $step_id = $this->getCurrentStepId();
     $step_form_object = $this->getStepFormObject($step_id);
 
     // Pass through both the form elements validation and the form object
     // validation.
     $step_form_object->validateForm($form[static::INNER_FORM], $form_state);
-    //$this->formValidator->validateForm($step_form_object->getFormId(), $form[static::INNER_FORM], $form_state);
-    drupal_set_message('end of validate');
   }
 
   /**

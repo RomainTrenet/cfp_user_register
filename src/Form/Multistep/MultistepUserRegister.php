@@ -7,9 +7,7 @@
 
 namespace Drupal\cfp_user_register\Form\Multistep;
 
-use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\user\Entity\User;
 
 class MultistepUserRegister extends MultistepFormBase {
 
@@ -25,18 +23,14 @@ class MultistepUserRegister extends MultistepFormBase {
    * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    drupal_set_message('user build');
-
-    // @todo : form state.
-    $step_id = $this->getCurrentStepId();
-    /*$values = $this->getStoreStepFormStateValues($step_id);
-    ksm($values);
-    if(isset($values)) {
-      $form_state->setValues($values);
-    }*/
-
     // Build parent form at the beginning to get form_state from parent.
     $form = parent::buildForm($form, $form_state);
+
+    /*$values = $this->getStoreStepFormStateValues($step_id);
+        ksm($values);
+        if(isset($values)) {
+          $form_state->setValues($values);
+        }*/
 
     // Ensure step id, get the step id from form id.
     parent::ensureStoreStepId('user');
@@ -44,7 +38,6 @@ class MultistepUserRegister extends MultistepFormBase {
 
     // Get inner form.
     $inner_form = parent::getStepFormObject($step_id)->buildForm([], $form_state);
-    //@todo : record inner form in the store, so that validate can use it.
 
     // Remove original entity builders and actions.
     if(isset($inner_form['#entity_builders'])) {
@@ -59,11 +52,14 @@ class MultistepUserRegister extends MultistepFormBase {
     $form[self::INNER_FORM] = $inner_form;
     $form['#access'] = TRUE;
 
-    drupal_set_message('end of user build form');
     return $form;
   }
 
-  // Needed by entityTypeManager.
+  /**
+   * Needed by entityTypeManager.
+   *
+   * {@inheritdoc}.
+   */
   public function processForm(array &$element, FormStateInterface &$form_state, array &$complete_form) {
     return $element;
   }
@@ -72,9 +68,5 @@ class MultistepUserRegister extends MultistepFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    //$this->store->set('email', $form_state->getValue('email'));
-    //$this->store->set('name', $form_state->getValue('name'));
-    //$form_state->setRedirect('cfp_user_register.user_register_commerce');
-    drupal_set_message('user register commerce submit');
   }
 }
