@@ -27,6 +27,7 @@ abstract class MultistepFormBase extends FormBase {
    * @see getInnerFormState()
    */
   const INNER_FORM = 'form';
+  const FORM_STATE = 'form_state';
   const CURRENT_STEP_ID = 'current_step_id';
   const MAIN_SUBMIT_BUTTON = 'submit';
   const PREVIOUS_BUTTON = 'previous';
@@ -45,7 +46,8 @@ abstract class MultistepFormBase extends FormBase {
   /**
    * @var \Drupal\Core\Session\AccountInterface
    */
-  private $currentUser;
+  // @todo : it was private.
+  protected $currentUser;
 
   /**
    * @var \Drupal\user\PrivateTempStore
@@ -109,15 +111,11 @@ abstract class MultistepFormBase extends FormBase {
         'form_object' => $this->entityTypeManager
           ->getFormObject('user', 'default')
           ->setEntity(User::create()),
-        //'form' => array(),
-        //'form_state' => NULL,
       ],
       2 => [
         'form_id' => 'information_commerce',
         'form_route' => 'cfp_user_register.user_register_commerce',
         'form_object' => NULL,
-        //'form' => array(),
-        //'form_state' => NULL,
       ],
     ];
 
@@ -149,21 +147,23 @@ abstract class MultistepFormBase extends FormBase {
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
+    drupal_set_message('MS build');
+
+    // Instantiate current step id value.
+    // By security, each sub-form ensure step id through steps_form.
+    $step_id = $this->getCurrentStepId();
+    if(empty($step_id)) {
+      $this->setCurrentStepId($this->first_step_id);
+      $step_id = $this->first_step_id;
+    }
+
+    // @todo : form state.
+    //$form_state = $this::getStoreStepFormState($step_id);
+
     // Start a manual session for anonymous users.
     if ($this->currentUser->isAnonymous() && !isset($_SESSION['multistep_form_holds_session'])) {
       $_SESSION['multistep_form_holds_session'] = true;
       $this->sessionManager->start();
-    }
-
-    //@todo remove.
-    //$this->setCurrentStepId(1);
-
-    // Instantiate current step id value.
-    // By security, each sub-form ensure step id through steps_form.
-    $current_step_id = $this->getCurrentStepId();
-    if(empty($current_step_id)) {
-      $this->setCurrentStepId($this->first_step_id);
-      $current_step_id = $this->first_step_id;
     }
 
     // Default action elements.
@@ -175,31 +175,31 @@ abstract class MultistepFormBase extends FormBase {
         '#submit' => [
           '::cfp_user_register_next_previous_form_submit',
         ],
-        '#access' => $current_step_id != $this->first_step_id && $this->first_step_id != $this->last_step_id,
+        '#access' => $step_id != $this->first_step_id && $this->first_step_id != $this->last_step_id,
         //'#limit_validation_errors' => [],
         '#weight' => 1,
       ],
       static::NEXT_BUTTON => [
         '#type' => 'submit',
         '#value' => t('Next'),
-        '#validate' => ['::validateForm'],
+        '#validate' => ['::customValidateForm'],
         '#submit' => [
           '::cfp_user_register_step_form_submit',
           '::cfp_user_register_next_previous_form_submit',
         ],
         //'#limit_validation_errors' => $validation,
-        '#access' => $current_step_id != $this->last_step_id && $this->first_step_id != $this->last_step_id,
+        '#access' => $step_id != $this->last_step_id && $this->first_step_id != $this->last_step_id,
         '#weight' => 2,
       ],
       static::MAIN_SUBMIT_BUTTON => [
         '#type' => 'submit',
         '#value' => $this->t('Save'),
-        '#validate' => ['::validateForm'],
+        '#validate' => ['::customValidateForm'],
         '#submit' => [
           '::cfp_user_register_step_form_submit',
           '::cfp_user_register_final_form_submit',
         ],
-        '#access' => $current_step_id == $this->last_step_id,
+        '#access' => $step_id == $this->last_step_id,
         '#weight' => 3,
       ],
     ];
@@ -272,44 +272,73 @@ abstract class MultistepFormBase extends FormBase {
     drupal_set_message('next / previous END | Step : ' . $step_id);
   }
 
-  /**
-   * Validate form.
-   *
-   * As the form is splited in steps, validate only the current step form.
-   * {@inheritDoc}
-   */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('validate user form');
-    $step_id = $this->getCurrentStepId();
-    $step_form_object = $this->getStepFormObject($step_id);
-
-    // Pass through both the form elements validation and the form object
-    // validation.
-    $step_form_object->validateForm($form[STATIC::INNER_FORM], $form_state);
-    //$this->formValidator->validateForm($step_form_object->getFormId(), $form[STATIC::INNER_FORM], $form_state);
-    drupal_set_message('end of validate');
-  }
-
   public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
     drupal_set_message('step form submit');
-    /*
 
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
 
     // Set "rebuild" to true, so that doSubmit can be executed.
     // Without this, the form is not considered as executed.
-    $form_state->setRebuild(TRUE);
+    // FAUX : problème lors du passage à étape 2.
+    //$form_state->setRebuild(TRUE);
 
     // Record form state in the storage.
-    $this::cfp_user_register_store_step_form_state($step_id, $form_state);
-    */
+    //$this::cfp_user_register_store_step_form_state($step_id, $form_state);
+
+    $form_id = $this::cfp_user_register_get_form_step_id($step_id);
+    //$this::setStoreStepFormState($form_id, $form_state);
   }
 
   public function cfp_user_register_final_form_submit(array &$form, FormStateInterface $form_state) {
-    $this->setCurrentStepId(1);
+    //$this->setCurrentStepId(1);
     drupal_set_message('hello !');
   }
+
+  /**
+   * Validate form.
+   *
+   * As the form is splited in steps, validate only the current step form.
+   * {@inheritDoc}
+   */
+  public function customValidateForm(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('validate user form');
+    $step_id = $this->getCurrentStepId();
+    $step_form_object = $this->getStepFormObject($step_id);
+
+    // Pass through both the form elements validation and the form object
+    // validation.
+    $step_form_object->validateForm($form[static::INNER_FORM], $form_state);
+    //$this->formValidator->validateForm($step_form_object->getFormId(), $form[static::INNER_FORM], $form_state);
+    drupal_set_message('end of validate');
+  }
+
+  /**
+   * Construct form state stored variable name.
+   *
+   * @param $form_id
+   *   The form id concerned.
+   *
+   * @return string
+   *   The form state variable name.
+   */
+  private function getFormStateStoredName($form_id) {
+    return self::FORM_STATE . '_step_' . $form_id;
+  }
+
+  // @todo.
+  protected function getStoreStepFormState($form_id) {
+    $fs_stored_name = $this->getFormStateStoredName($form_id);
+    $fs = $this->store->get($fs_stored_name);
+
+    if(empty($fs)) {
+      $fs = new FormState();
+    }
+
+    return $fs;
+  }
+
+  // @todo.
 
   /**
    * @todo
@@ -321,20 +350,12 @@ abstract class MultistepFormBase extends FormBase {
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
    */
-  private function cfp_user_register_store_step_form_state($step_id, FormStateInterface $form_state) {
-    drupal_set_message('store step form state');
-
-    /*
-    // Get the entire steps_form because we can't set only one child.
-    $steps_form = $form_state->get('steps_form');
-
-    // Set new value.
-    if (isset($steps_form[$step_id]['form_state'])) {
-      $steps_form[$step_id]['form_state'] = $form_state;
+  protected function setStoreStepFormState($form_id, FormStateInterface $form_state) {
+    $fs_stored_name = $this->getFormStateStoredName($form_id);
+    try {
+      $this->store->set($fs_stored_name, $form_state);
+    } catch (TempStoreException $e) {
     }
-
-    // Finally record.
-    $form_state->set('steps_form', $steps_form);*/
   }
 
   /**
