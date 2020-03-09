@@ -22,12 +22,14 @@ class MultistepCommerceRegister extends MultistepFormBase {
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    // Build parent form at the beginning to get form_state from parent.
-    $form = parent::buildForm($form, $form_state);
+    drupal_set_message('build commerce form');
 
     // Ensure step id, get the step id from form id and store it.
     parent::ensureStoreStepId('information_commerce');
     $step_id = parent::getCurrentStepId();
+
+    // Build parent form at the beginning to get form_state from parent.
+    $form = parent::buildForm($form, $form_state);
 
     // Get inner form.
     $inner_form = parent::getStepFormObject($step_id)->buildForm([], $form_state);
@@ -62,6 +64,7 @@ class MultistepCommerceRegister extends MultistepFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     // @todo : final redirect.
+    drupal_set_message('final submit register form');
     // $form_state->setRedirect('redirect-route');
   }
 }

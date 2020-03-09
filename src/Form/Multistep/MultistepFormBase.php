@@ -154,6 +154,7 @@ abstract class MultistepFormBase extends FormBase {
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
+    drupal_set_message('build form base');
     // Instantiate current step id value.
     // By security, each sub-form ensure step id through steps_form.
     $step_id = $this->getCurrentStepId();
@@ -182,6 +183,7 @@ abstract class MultistepFormBase extends FormBase {
       $this->sessionManager->start();
     }
 
+    // Breadcrumb form element.
     $form['breadcrumb'] = $this->cfp_user_register_get_breadcrumb();
 
     // Default action elements.
@@ -224,32 +226,6 @@ abstract class MultistepFormBase extends FormBase {
   }
 
   /**
-   * Get the breadcrumb from steps.
-   *
-   * @return array
-   *   The data to render.
-   */
-  private function cfp_user_register_get_breadcrumb() {
-    $steps = [];
-    $current_step_id = $this->getCurrentStepId();
-
-    // Construct steps informations.
-    foreach ($this->steps_form as $step_id => $step_form) {
-      $steps[$step_id] = [
-        'title' => $step_form['title'],
-        'current' => $step_id == $current_step_id,
-      ];
-    }
-
-    // Return data to render.
-    return array(
-      '#theme' => 'user_register_breadcrumb',
-      '#steps' => $steps,
-      '#weight' => '-100',
-    );
-  }
-
-  /**
    * Submit handler for each steps.
    *
    * @param array $form
@@ -259,6 +235,8 @@ abstract class MultistepFormBase extends FormBase {
    *   The form state.
    */
   public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('submit form base');
+
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
 
@@ -278,6 +256,8 @@ abstract class MultistepFormBase extends FormBase {
    * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_next_previous_form_submit(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('next previous submit');
+
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
 
@@ -313,6 +293,8 @@ abstract class MultistepFormBase extends FormBase {
    *   The form state.
    */
   public function cfp_user_register_final_form_submit(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('final submit form base');
+
     // Do user entity register form submission.
     $user_step_id = $this::cfp_user_register_get_form_step_id('user');
     if($user_step_id) {
@@ -355,6 +337,7 @@ abstract class MultistepFormBase extends FormBase {
    * {@inheritDoc}
    */
   public function customValidateForm(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('validate form base');
     $step_id = $this->getCurrentStepId();
     $step_form_object = $this->getStepFormObject($step_id);
 
@@ -373,7 +356,6 @@ abstract class MultistepFormBase extends FormBase {
    *   The form state variable name.
    */
   private function getFormStateStoredName($step_id) {
-    // @todo : int to string.
     $form_id = $this::cfp_user_register_get_step_form_id($step_id);
     return self::FORM_STATE . '_step_' . strval($form_id);
   }
@@ -535,5 +517,31 @@ abstract class MultistepFormBase extends FormBase {
     } else {
       return NULL;
     }
+  }
+
+  /**
+   * Get the breadcrumb from steps.
+   *
+   * @return array
+   *   The data to render.
+   */
+  private function cfp_user_register_get_breadcrumb() {
+    $steps = [];
+    $current_step_id = $this->getCurrentStepId();
+
+    // Construct steps informations.
+    foreach ($this->steps_form as $step_id => $step_form) {
+      $steps[$step_id] = [
+        'title' => $step_form['title'],
+        'current' => $step_id == $current_step_id,
+      ];
+    }
+
+    // Return data to render.
+    return array(
+      '#theme' => 'user_register_breadcrumb',
+      '#steps' => $steps,
+      '#weight' => '-100',
+    );
   }
 }

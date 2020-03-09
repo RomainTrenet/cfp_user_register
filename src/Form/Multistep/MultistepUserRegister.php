@@ -23,12 +23,14 @@ class MultistepUserRegister extends MultistepFormBase {
    * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    // Build parent form at the beginning to get form_state from parent.
-    $form = parent::buildForm($form, $form_state);
+    drupal_set_message('build register form');
 
     // Ensure step id, get the step id from form id.
     parent::ensureStoreStepId('user');
     $step_id = parent::getCurrentStepId();
+
+    // Build parent form at the beginning to get form_state from parent.
+    $form = parent::buildForm($form, $form_state);
 
     // Get inner form.
     $inner_form = parent::getStepFormObject($step_id)->buildForm([], $form_state);
@@ -76,5 +78,6 @@ class MultistepUserRegister extends MultistepFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+    drupal_set_message('final submit register form');
   }
 }
