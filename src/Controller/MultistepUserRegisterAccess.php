@@ -87,11 +87,10 @@ class MultistepUserRegisterAccess extends ControllerBase {
       $current_step = $this->stepsAccessSettings[$this->currentRouteName];
 
       // If current route is already passed or current step.
+      // @todo : add condition : if prev step is passed.
       if ($current_step['passed'] == TRUE || $current_step['step_id'] == $this->currentStepId) {
         return AccessResult::allowed();
       } else {
-        // @todo : redirect to last.
-        $last_step_id = $this->get_last_passed_step();
         return AccessResult::forbidden();
       }
 
