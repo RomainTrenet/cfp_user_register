@@ -7,9 +7,8 @@
 
 namespace Drupal\cfp_user_register\Form\Multistep;
 
-// @todo : adpat with cfp commerce enfity name.
-use Drupal\cfp_information_commerce\Entity\InformationCommerceEntity;
-
+// @todo : delete, this is an example with custom entity.
+//use Drupal\cfp_information_commerce\Entity\InformationCommerceEntity;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -17,7 +16,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Session\SessionManagerInterface;
 use Drupal\Core\TempStore\TempStoreException;
 use Drupal\user\Entity\User;
-use Drupal\user\PrivateTempStoreFactory;
+use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 abstract class MultistepFormBase extends FormBase {
@@ -36,7 +35,7 @@ abstract class MultistepFormBase extends FormBase {
   const NEXT_BUTTON = 'next';
 
   /**
-   * @var \Drupal\user\PrivateTempStoreFactory
+   * @var \Drupal\Core\TempStore\PrivateTempStoreFactory
    */
   protected $tempStoreFactory;
 
@@ -51,7 +50,7 @@ abstract class MultistepFormBase extends FormBase {
   private $currentUser;
 
   /**
-   * @var \Drupal\user\PrivateTempStore
+   * @var \Drupal\Core\TempStore\PrivateTempStore
    */
   protected $store;
 
@@ -64,6 +63,11 @@ abstract class MultistepFormBase extends FormBase {
    * @var array
    */
   protected $steps_form;
+
+  /**
+   * @var array
+   */
+  protected $steps_access_settings;
 
   /**
    * The first step id, to avoid calculating many times.
@@ -83,13 +87,27 @@ abstract class MultistepFormBase extends FormBase {
   protected $matching_step_id_for_form_id;
 
   /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('tempstore.private'),
+      $container->get('session_manager'),
+      $container->get('current_user'),
+      $container->get('entity_type.manager')
+    );
+  }
+
+  /**
    * Constructs a \Drupal\cfp_user_register\Form\Multistep\MultistepFormBase.
    *
-   * @param \Drupal\user\PrivateTempStoreFactory $temp_store_factory
+   * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store_factory
    * @param \Drupal\Core\Session\SessionManagerInterface $session_manager
    * @param \Drupal\Core\Session\AccountInterface $current_user
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
-   *   The entity type manager service.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
    */
   public function __construct(
     PrivateTempStoreFactory $temp_store_factory,
@@ -101,7 +119,6 @@ abstract class MultistepFormBase extends FormBase {
     $this->sessionManager = $session_manager;
     $this->currentUser = $current_user;
     $this->entityTypeManager = $entityTypeManager;
-
     $this->store = $this->tempStoreFactory->get('multistep_data');
 
     // This are the initial steps, used at the beginning.
@@ -119,12 +136,33 @@ abstract class MultistepFormBase extends FormBase {
         'form_id' => 'information_commerce',
         'form_route' => 'cfp_user_register.user_register_commerce',
         'form_object' => $this->entityTypeManager
+          ->getFormObject('node', 'default')
+          ->setEntity(
+            $this->entityTypeManager
+              ->getStorage('node')
+              ->create(['type' => 'choucroute'])
+          ),
+        /*
+        @todo : delete, this is an example with custom entity.
+        'form_object' => $this->entityTypeManager
           ->getFormObject('information_commerce', 'default')
           ->setEntity(InformationCommerceEntity::create([
             'type' => 'information_commerce',
           ])),
+        */
       ],
     ];
+
+    // Steps, stored to use for access checking.
+    $this->steps_access_settings = [];
+    foreach ($this->steps_form as $step_id => $form_settings) {
+      // Create array on route key.
+      $this->steps_access_settings[$form_settings['form_route']] = [
+        // Register status "passed" and id.
+        'step_id' => $step_id,
+        'passed' => FALSE,
+      ];
+    }
 
     // Record first and last step id.
     reset($this->steps_form);
@@ -139,22 +177,9 @@ abstract class MultistepFormBase extends FormBase {
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('user.private_tempstore'),
-      $container->get('session_manager'),
-      $container->get('current_user'),
-      $container->get('entity_type.manager')
-    );
-  }
-
-  /**
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    drupal_set_message('build form base');
     // Instantiate current step id value.
     // By security, each sub-form ensure step id through steps_form.
     $step_id = $this->getCurrentStepId();
@@ -163,19 +188,10 @@ abstract class MultistepFormBase extends FormBase {
       $step_id = $this->first_step_id;
     }
 
-    // @todo : get form state from store.
-    /*$values = $this->getStoreStepFormState($step_id);
-    ksm($values);
-    if(isset($values)) {
-      $form_state->setValues($values);
-    }*/
-    //$form_state = new FormState();
-
-    /*
-    $fs = $this->getStoreStepFormState($step_id);
-    if(isset($fs)) {
-      //$form_state = $fs;
-    }*/
+    // Instantiate store access settings.
+    if(!$this->store->get('steps_access_settings')) {
+      $this->cfp_user_register_store_steps_access_settings();
+    }
 
     // Start a manual session for anonymous users.
     if ($this->currentUser->isAnonymous() && !isset($_SESSION['multistep_form_holds_session'])) {
@@ -233,15 +249,19 @@ abstract class MultistepFormBase extends FormBase {
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
+   *
+   * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('submit form base');
-
-    // Get the current page that was submitted.
+    // Get the current page that was submitted, store a copy.
     $step_id = $this->getCurrentStepId();
+    $former_step_id = $step_id;
 
     // Record form state in the storage.
     $this::setStoreStepFormState($step_id, $form_state);
+
+    // Then record status of step to manage rights access.
+    $this->cfp_user_register_set_steps_access_settings_passed($former_step_id, TRUE);
   }
 
   /**
@@ -256,8 +276,6 @@ abstract class MultistepFormBase extends FormBase {
    * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_next_previous_form_submit(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('next previous submit');
-
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
 
@@ -291,11 +309,14 @@ abstract class MultistepFormBase extends FormBase {
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
+   * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_final_form_submit(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('final submit form base');
-
     // Do user entity register form submission.
+    $user_form_state = '';
     $user_step_id = $this::cfp_user_register_get_form_step_id('user');
     if($user_step_id) {
       $user_form_state = $this->getStoreStepFormState($user_step_id);
@@ -306,6 +327,7 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // Do commerce entity
+    $commerce_form_state = '';
     $commerce_step_id = $this::cfp_user_register_get_form_step_id('information_commerce');
     if($commerce_step_id) {
       $commerce_form_state = $this->getStoreStepFormState($commerce_step_id);
@@ -316,18 +338,38 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // Then, record user id to the commerce.
-    $new_uid = $user_form_state->getValue('uid');
-    // @todo : adapt cfp_commerce_id.
-    $cfp_commerce_id = $commerce_form_state->getValue('cfp_commerce_id');
+    // @todo : adapt 'nid' if needed, with the machine name of your commerce node id key.
+    if ($user_form_state->getValue('uid') && $commerce_form_state->getValue('nid')) {
+      $new_uid = $user_form_state->getValue('uid');
+      // @todo : adapt 'nid' with the machine name of your commerce node id key.
+      $cfp_commerce_id = $commerce_form_state->getValue('nid');
 
-    // Load our custom commerce entity, and set the user id as reference.
-    // @todo : adapt 'uid_test' with commerce's user entity id reference.
-    InformationCommerceEntity::load($cfp_commerce_id)
-      ->set('uid_test', $new_uid)
-      ->save();
+      // Load our custom commerce entity
+      // Set the user id as reference and as author.
+      // @todo : adapt 'field_uid' with the machine name value of your user's reference field id.
+      $this->entityTypeManager
+        ->getStorage('node')
+        ->load($cfp_commerce_id)
+        ->set('field_uid', $new_uid)
+        ->set('uid', $new_uid)
+        ->save();
+      // @todo : delete, this is an example with custom entity.
+      /*InformationCommerceEntity::load($cfp_commerce_id)
+        ->set('uid_test', $new_uid)
+        ->save();*/
 
-    // Finish by deleting store.
-    $this->deleteAllStoreStepFormState();
+      // Redirect to first step.
+      // @todo : adapt if you want to go somewhere else.
+      $redirect_route = $this->steps_form[1]['form_route'];
+      $form_state->setRedirect($redirect_route);
+
+      // Deleting store form state values from the private store.
+      $this->deleteAllStoreStepFormState();
+
+      // Deleting step access settings values from the private store.
+      $this->store->delete('steps_access_settings');
+    }
+
   }
 
   /**
@@ -335,15 +377,20 @@ abstract class MultistepFormBase extends FormBase {
    *
    * As the form is splited in steps, validate only the current step form.
    * {@inheritDoc}
+   *
+   * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function customValidateForm(array &$form, FormStateInterface $form_state) {
-    drupal_set_message('validate form base');
     $step_id = $this->getCurrentStepId();
     $step_form_object = $this->getStepFormObject($step_id);
 
-    // Pass through both the form elements validation and the form object
-    // validation.
+    // Validate form.
     $step_form_object->validateForm($form[static::INNER_FORM], $form_state);
+
+    // Unvalidated stored settings if error.
+    if ($form_state->hasAnyErrors()) {
+      $this->cfp_user_register_set_steps_access_settings_passed($step_id, FALSE);
+    }
   }
 
   /**
@@ -543,5 +590,45 @@ abstract class MultistepFormBase extends FormBase {
       '#steps' => $steps,
       '#weight' => '-100',
     );
+  }
+
+  /**
+   * Stores steps access settings in private store.
+   *
+   * Used for access validation.
+   */
+  private function cfp_user_register_store_steps_access_settings() {
+    if(isset($this->steps_access_settings)) {
+      try {
+        $this->store->set('steps_access_settings', $this->steps_access_settings);
+      } catch (TempStoreException $e) {
+      }
+    }
+  }
+
+  /**
+   * Set access setting "passed" for a step, to manage rights access.
+   *
+   * @param integer $step_id
+   *   The step id.
+   * @param boolean $status
+   *   If is passed
+   *
+   * @throws \Drupal\Core\TempStore\TempStoreException
+   */
+  private function cfp_user_register_set_steps_access_settings_passed($step_id, $status) {
+    if (isset($this->steps_form[$step_id])) {
+      // Get route from step id.
+      $route = $this->steps_form[$step_id]['form_route'];
+
+      // We have to take entire value.
+      $steps_access_settings = $this->store->get('steps_access_settings');
+      if(isset($steps_access_settings[$route])) {
+        $steps_access_settings[$route]['passed'] = $status;
+      }
+
+      // Finally record.
+      $this->store->set('steps_access_settings', $steps_access_settings);
+    }
   }
 }

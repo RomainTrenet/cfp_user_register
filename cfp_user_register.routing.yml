@@ -11,4 +11,4 @@ cfp_user_register.user_register_commerce:
     _form: '\Drupal\cfp_user_register\Form\Multistep\MultistepCommerceRegister'
     _title: 'CFP Register user s commerce'
   requirements:
-    _permission: 'access content'
+    _custom_access: '\Drupal\cfp_user_register\Controller\MultistepUserRegisterAccess::checkAccess'
