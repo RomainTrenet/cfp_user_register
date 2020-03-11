@@ -292,6 +292,7 @@ abstract class MultistepFormBase extends FormBase {
     else if ($operation == self::PREVIOUS_BUTTON) {
       $step_id--;
     }
+
     // Record it.
     $this->setCurrentStepId($step_id);
 
