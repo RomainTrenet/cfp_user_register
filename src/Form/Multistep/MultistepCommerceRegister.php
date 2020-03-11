@@ -22,7 +22,7 @@ class MultistepCommerceRegister extends MultistepFormBase {
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    drupal_set_message('build commerce form');
+    //drupal_set_message('build commerce form');
 
     // Ensure step id, get the step id from form id and store it.
     parent::ensureStoreStepId('information_commerce');
@@ -63,8 +63,5 @@ class MultistepCommerceRegister extends MultistepFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    // @todo : final redirect.
-    drupal_set_message('final submit register form');
-    // $form_state->setRedirect('redirect-route');
   }
 }
