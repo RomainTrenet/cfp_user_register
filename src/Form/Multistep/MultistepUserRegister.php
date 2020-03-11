@@ -23,8 +23,6 @@ class MultistepUserRegister extends MultistepFormBase {
    * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    drupal_set_message('build register form');
-
     // Ensure step id, get the step id from form id.
     parent::ensureStoreStepId('user');
     $step_id = parent::getCurrentStepId();
@@ -44,11 +42,13 @@ class MultistepUserRegister extends MultistepFormBase {
     }
 
     // Populate with former values.
-    // @todo : could be improved with a Form API function.
+    // @todo : could be improved with a Form API function ?.
     $former_form_state = $this->getStoreStepFormState($step_id);
     if(!empty($former_form_state)) {
+      // @todo : take care, populate could be a problem with some fields when go back to user step.
       foreach($inner_form['account'] as $key => $value) {
         $default_value = $former_form_state->getValue($key);
+        // Avoid 'pass' populating, this generate problems.
         if(isset($default_value) && $key != 'pass') {
           $inner_form['account'][$key]['#default_value'] = $default_value;
         }

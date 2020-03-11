@@ -105,7 +105,6 @@ abstract class MultistepFormBase extends FormBase {
    * @param \Drupal\Core\Session\SessionManagerInterface $session_manager
    * @param \Drupal\Core\Session\AccountInterface $current_user
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
-   *   The entity type manager service.
    *
    * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
@@ -181,7 +180,6 @@ abstract class MultistepFormBase extends FormBase {
    * {@inheritdoc}.
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    //drupal_set_message('build form base');
     // Instantiate current step id value.
     // By security, each sub-form ensure step id through steps_form.
     $step_id = $this->getCurrentStepId();
@@ -251,10 +249,10 @@ abstract class MultistepFormBase extends FormBase {
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
+   *
+   * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_step_form_submit(array &$form, FormStateInterface $form_state) {
-    //drupal_set_message('submit form base');
-
     // Get the current page that was submitted, store a copy.
     $step_id = $this->getCurrentStepId();
     $former_step_id = $step_id;
@@ -278,8 +276,6 @@ abstract class MultistepFormBase extends FormBase {
    * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_next_previous_form_submit(array &$form, FormStateInterface $form_state) {
-    //drupal_set_message('next previous submit');
-
     // Get the current page that was submitted.
     $step_id = $this->getCurrentStepId();
 
@@ -313,11 +309,14 @@ abstract class MultistepFormBase extends FormBase {
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
+   * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function cfp_user_register_final_form_submit(array &$form, FormStateInterface $form_state) {
-    //drupal_set_message('final submit form base');
-
     // Do user entity register form submission.
+    $user_form_state = '';
     $user_step_id = $this::cfp_user_register_get_form_step_id('user');
     if($user_step_id) {
       $user_form_state = $this->getStoreStepFormState($user_step_id);
@@ -328,6 +327,7 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // Do commerce entity
+    $commerce_form_state = '';
     $commerce_step_id = $this::cfp_user_register_get_form_step_id('information_commerce');
     if($commerce_step_id) {
       $commerce_form_state = $this->getStoreStepFormState($commerce_step_id);
@@ -338,23 +338,25 @@ abstract class MultistepFormBase extends FormBase {
     }
 
     // Then, record user id to the commerce.
-    // @todo : adapt 'nid' with the machine name of your commerce node id key.
+    // @todo : adapt 'nid' if needed, with the machine name of your commerce node id key.
     if ($user_form_state->getValue('uid') && $commerce_form_state->getValue('nid')) {
       $new_uid = $user_form_state->getValue('uid');
       // @todo : adapt 'nid' with the machine name of your commerce node id key.
       $cfp_commerce_id = $commerce_form_state->getValue('nid');
 
-      // Load our custom commerce entity, and set the user id as reference.
-      // @todo : delete, this is an example with custom entity.
-      /*InformationCommerceEntity::load($cfp_commerce_id)
-        ->set('uid_test', $new_uid)
-        ->save();*/
+      // Load our custom commerce entity
+      // Set the user id as reference and as author.
       // @todo : adapt 'field_uid' with the machine name value of your user's reference field id.
       $this->entityTypeManager
         ->getStorage('node')
         ->load($cfp_commerce_id)
         ->set('field_uid', $new_uid)
+        ->set('uid', $new_uid)
         ->save();
+      // @todo : delete, this is an example with custom entity.
+      /*InformationCommerceEntity::load($cfp_commerce_id)
+        ->set('uid_test', $new_uid)
+        ->save();*/
 
       // Redirect to first step.
       // @todo : adapt if you want to go somewhere else.
@@ -375,6 +377,8 @@ abstract class MultistepFormBase extends FormBase {
    *
    * As the form is splited in steps, validate only the current step form.
    * {@inheritDoc}
+   *
+   * @throws \Drupal\Core\TempStore\TempStoreException
    */
   public function customValidateForm(array &$form, FormStateInterface $form_state) {
     $step_id = $this->getCurrentStepId();
@@ -382,6 +386,11 @@ abstract class MultistepFormBase extends FormBase {
 
     // Validate form.
     $step_form_object->validateForm($form[static::INNER_FORM], $form_state);
+
+    // Unvalidated stored settings if error.
+    if ($form_state->hasAnyErrors()) {
+      $this->cfp_user_register_set_steps_access_settings_passed($step_id, FALSE);
+    }
   }
 
   /**
